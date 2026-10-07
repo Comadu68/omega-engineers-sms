@@ -1,0 +1,32 @@
+# Implementation Checklist
+
+- [x] Electron + Vite + React bootstrapped
+- [x] SQLite initialized in userData directory
+- [x] first-run owner-account wizard
+- [x] login
+- [x] role-based access
+- [x] shared sidebar/layout
+- [x] dashboard
+- [x] customers
+- [x] vehicles
+- [x] appointments + conflict prevention
+- [x] mechanics + availability
+- [x] job-card list including Cancelled
+- [x] job-card detail/tasks/status history
+- [x] mechanic assignment
+- [x] inventory item master
+- [x] stock receiving as separate batches
+- [x] FIFO consumption
+- [x] low-stock alerts
+- [x] invoices
+- [x] partial/full payments
+- [x] expense register
+- [x] daily summary revenue/COGS/expenses/profit
+- [x] other reports
+- [x] backup/restore
+- [x] settings
+- [x] audit/error logging
+- [x] offline test
+- [x] 1366×768 UI regression
+- [x] installer build
+- [x] clean-PC install test

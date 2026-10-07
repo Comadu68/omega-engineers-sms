@@ -1,0 +1,816 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Service Station Management System — Wireframes</title>
+<style>
+  :root{
+    --ink:#2b2b2b;
+    --line:#8a8a8a;
+    --line-light:#bbbbbb;
+    --paper:#fafafa;
+    --panel:#ffffff;
+    --accent:#5a5a5a;
+    --dash: 6;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    font-family: 'Courier New', Courier, monospace;
+    background: var(--paper);
+    color: var(--ink);
+  }
+  header.top{
+    padding: 24px 32px 12px 32px;
+    border-bottom: 2px solid var(--ink);
+  }
+  header.top h1{
+    margin:0 0 4px 0;
+    font-size: 20px;
+    letter-spacing: 0.5px;
+  }
+  header.top p{
+    margin:0;
+    font-size: 12px;
+    color: var(--accent);
+  }
+  nav.tabs{
+    display:flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 16px 32px;
+    border-bottom: 1px dashed var(--line-light);
+    background: var(--paper);
+  }
+  nav.tabs button{
+    font-family: inherit;
+    font-size: 12px;
+    padding: 8px 14px;
+    background: var(--panel);
+    border: 1.5px solid var(--ink);
+    cursor: pointer;
+    color: var(--ink);
+  }
+  nav.tabs button.active{
+    background: var(--ink);
+    color: var(--paper);
+  }
+  main{
+    padding: 28px 32px 60px 32px;
+  }
+  .screen{
+    display:none;
+    max-width: 880px;
+    margin: 0 auto;
+  }
+  .screen.active{ display:block; }
+  .screen-label{
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: var(--accent);
+    margin-bottom: 6px;
+  }
+  .frame{
+    border: 2px solid var(--ink);
+    background: var(--panel);
+    position: relative;
+  }
+  .frame::before{
+    content: attr(data-title);
+    position: absolute;
+    top: -11px;
+    left: 14px;
+    background: var(--paper);
+    padding: 0 8px;
+    font-size: 11px;
+    letter-spacing: 1px;
+    color: var(--accent);
+  }
+  .box{
+    border: 1.5px solid var(--line);
+    background: repeating-linear-gradient(135deg, #fff, #fff 6px, #f0f0f0 6px, #f0f0f0 7px);
+  }
+  .box.solid{ background: #fff; }
+  .placeholder-text{
+    color: var(--line);
+    font-size: 11px;
+  }
+  .btn{
+    border: 1.5px solid var(--ink);
+    background: #fff;
+    text-align:center;
+    font-size: 11px;
+    padding: 8px 10px;
+  }
+  .btn.primary{
+    background: var(--ink);
+    color: #fff;
+  }
+  .field{
+    border: 1.5px solid var(--line);
+    background:#fff;
+    padding: 8px 10px;
+    font-size: 11px;
+    color: var(--line);
+  }
+  .field-label{
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--accent);
+    margin-bottom: 4px;
+  }
+  .x-icon{
+    width:16px;height:16px;
+    border:1.5px solid var(--line);
+    position:relative;
+    flex-shrink:0;
+  }
+  .x-icon::before,.x-icon::after{
+    content:'';
+    position:absolute;
+    background:var(--line);
+    top:50%;left:50%;
+  }
+  .x-icon::before{width:1px;height:130%;transform:translate(-50%,-50%) rotate(45deg);}
+  .x-icon::after{width:130%;height:1px;transform:translate(-50%,-50%) rotate(45deg);}
+
+  /* ===== Login ===== */
+  .login-wrap{ display:flex; justify-content:center; padding: 60px 20px; }
+  .login-card{ width: 320px; padding: 28px 24px; }
+  .login-card .logo{
+    width:56px;height:56px;margin:0 auto 18px auto;
+    border:2px solid var(--ink); border-radius:50%;
+    display:flex;align-items:center;justify-content:center;
+    font-size:10px; text-align:center; color:var(--accent);
+  }
+  .login-card .field{ margin-bottom:14px; }
+  .login-card .btn{ margin-top: 6px; }
+  .login-card .links{
+    display:flex; justify-content:space-between;
+    font-size:10px; color: var(--accent); margin-top: 14px;
+  }
+
+  /* ===== Dashboard ===== */
+  .dash-layout{ display:flex; min-height: 520px; }
+  .sidebar{
+    width: 160px; border-right: 2px solid var(--ink);
+    padding: 16px 12px; display:flex; flex-direction:column; gap:10px;
+  }
+  .sidebar .item{
+    font-size: 11px; padding: 8px 6px; border: 1px dashed var(--line-light);
+  }
+  .sidebar .item.current{ border: 1.5px solid var(--ink); background:#eee; }
+  .dash-main{ flex:1; padding: 18px; }
+  .topbar{
+    display:flex; justify-content:space-between; align-items:center;
+    border-bottom: 1.5px solid var(--ink); padding-bottom: 10px; margin-bottom: 16px;
+  }
+  .cards-row{ display:flex; gap:12px; margin-bottom: 18px; }
+  .stat-card{ flex:1; padding: 14px; text-align:center; }
+  .stat-card .num{ font-size:20px; font-weight:bold; }
+  .stat-card .lbl{ font-size:10px; color:var(--accent); margin-top:4px; }
+  .panel-row{ display:flex; gap:12px; }
+  .list-panel{ flex:1; padding:12px; min-height:180px; }
+  .list-row{
+    display:flex; justify-content:space-between; align-items:center;
+    padding:8px 4px; border-bottom: 1px dashed var(--line-light); font-size:11px;
+  }
+
+  /* ===== Job Card Form ===== */
+  .form-grid{ display:grid; grid-template-columns: 1fr 1fr; gap: 16px; padding: 22px; }
+  .form-grid .full{ grid-column: 1 / -1; }
+  .form-actions{ display:flex; gap:10px; justify-content:flex-end; padding: 0 22px 20px 22px; }
+  .form-actions .btn{ width: 120px; }
+  .section-title{
+    font-size:11px; text-transform:uppercase; letter-spacing:1px;
+    border-bottom:1px solid var(--line-light); padding-bottom:6px; margin: 4px 0 2px 0;
+  }
+
+  /* ===== Inventory ===== */
+  .toolbar{
+    display:flex; justify-content:space-between; align-items:center;
+    padding: 14px 18px; border-bottom: 1.5px solid var(--ink);
+  }
+  .search{ flex:1; max-width: 260px; }
+  table.inv{ width:100%; border-collapse: collapse; font-size: 11px; }
+  table.inv th{
+    text-align:left; padding:10px 14px; border-bottom: 1.5px solid var(--ink);
+    color: var(--accent); font-weight:normal; text-transform:uppercase; letter-spacing:0.5px; font-size:10px;
+  }
+  table.inv td{ padding:10px 14px; border-bottom: 1px dashed var(--line-light); color: var(--line); }
+  .tag{ border:1px solid var(--line); padding:2px 8px; font-size:10px; }
+  .tag.low{ border-color: var(--ink); font-weight:bold; color: var(--ink); }
+
+  /* ===== Reports ===== */
+  .rep-toolbar{
+    display:flex; gap:10px; padding: 14px 18px; border-bottom: 1.5px solid var(--ink);
+  }
+  .rep-body{ padding: 18px; display:flex; gap:16px; flex-wrap:wrap; }
+  .chart-box{ flex:1; min-width: 260px; padding: 16px; }
+  .chart-box .cap{ font-size:10px; color:var(--accent); margin-bottom:10px; text-transform:uppercase; }
+  .bars{ display:flex; align-items:flex-end; gap:8px; height:120px; }
+  .bar{ flex:1; background: repeating-linear-gradient(135deg,#fff,#fff 5px,#eee 5px,#eee 6px); border:1.5px solid var(--line); }
+  .pie{
+    width:110px;height:110px;border-radius:50%;
+    border:2px dashed var(--line);
+    margin: 0 auto;
+    display:flex;align-items:center;justify-content:center;
+    font-size:9px; color:var(--line);
+  }
+  .table-mini{ width:100%; font-size:11px; border-collapse:collapse; }
+  .table-mini td, .table-mini th{ padding:6px 10px; border-bottom:1px dashed var(--line-light); }
+
+  /* ===== Job Cards List ===== */
+  .status-filters{ display:flex; gap:8px; }
+  .status-filters .chip{
+    font-size:10px; padding:5px 10px; border:1px solid var(--line);
+  }
+  .status-filters .chip.active{ border:1.5px solid var(--ink); background:#eee; }
+
+  /* ===== Service Completion / Sticker ===== */
+  .sticker-wrap{ display:flex; gap:18px; align-items:flex-start; padding: 0 22px 22px 22px; }
+  .sticker{
+    width:180px; padding:14px; border:2px dashed var(--ink);
+    text-align:center; flex-shrink:0;
+  }
+  .sticker .brand{ font-size:9px; letter-spacing:1px; color:var(--accent); }
+  .sticker .headline{ font-size:11px; font-weight:bold; margin:8px 0 10px 0; text-transform:uppercase; }
+  .sticker .row{ display:flex; justify-content:space-between; font-size:10px; padding:3px 0; border-bottom:1px dotted var(--line-light); text-align:left; }
+  .sticker .row span:first-child{ color:var(--accent); }
+  .sticker .note{ font-size:8px; color:var(--line); margin-top:8px; }
+
+  /* ===== Modal (New Appointment) ===== */
+  .modal-backdrop{
+    background: repeating-linear-gradient(45deg, #eee, #eee 4px, #e4e4e4 4px, #e4e4e4 8px);
+    padding: 40px 20px;
+    display:flex; justify-content:center;
+  }
+  .modal-card{
+    width: 340px;
+    background: var(--panel);
+    box-shadow: 4px 4px 0 rgba(0,0,0,0.15);
+  }
+  .modal-header{
+    display:flex; justify-content:space-between; align-items:center;
+    padding: 14px 18px; border-bottom: 1.5px solid var(--ink);
+    font-size: 12px; font-weight:bold;
+  }
+
+  /* ===== Mini Calendar ===== */
+  .calendar-panel{ width: 230px; flex-shrink:0; padding: 14px; }
+  .cal-header{
+    display:flex; justify-content:space-between; align-items:center;
+    font-size:11px; font-weight:bold; margin-bottom:10px;
+  }
+  .cal-header span.arrow{ font-weight:normal; color:var(--accent); cursor:pointer; }
+  .cal-grid{
+    display:grid; grid-template-columns: repeat(7, 1fr);
+    gap: 3px;
+  }
+  .cal-grid .dow{
+    font-size:9px; text-align:center; color:var(--accent); padding-bottom:4px;
+  }
+  .cal-day{
+    position:relative;
+    font-size:10px; text-align:center;
+    padding: 6px 0 8px 0;
+    border: 1px solid transparent;
+    color: var(--ink);
+  }
+  .cal-day.muted{ color: var(--line-light); }
+  .cal-day.today{ border: 1.5px solid var(--ink); font-weight:bold; }
+  .cal-day .dot{
+    position:absolute; bottom:2px; left:50%; transform:translateX(-50%);
+    width:4px; height:4px; border-radius:50%; background: var(--ink);
+  }
+  .cal-legend{
+    display:flex; align-items:center; gap:6px;
+    font-size:9px; color:var(--accent); margin-top:12px;
+  }
+  .cal-legend .dot{ width:4px; height:4px; border-radius:50%; background:var(--ink); }
+  .appt-layout{ display:flex; gap:0; }
+  .appt-layout .calendar-panel{ border-right: 1.5px solid var(--ink); }
+  .appt-main{ flex:1; }
+
+  footer.note{
+    max-width:880px; margin: 30px auto 0 auto;
+    font-size:10px; color:var(--accent); border-top:1px dashed var(--line-light); padding-top:10px;
+  }
+</style>
+</head>
+<body>
+
+<header class="top">
+  <h1>SERVICE STATION MANAGEMENT SYSTEM — WIREFRAMES</h1>
+  <p>Appendix B · Low-fidelity screen layouts · Omega Digital Solutions · EER4189</p>
+</header>
+
+<nav class="tabs" id="tabs">
+  <button class="active" data-target="login">1. Login</button>
+  <button data-target="dashboard">2. Dashboard</button>
+  <button data-target="jobcardslist">3. Job Cards</button>
+  <button data-target="appointments">4. Appointments</button>
+  <button data-target="appointmentform">4b. New Appointment</button>
+  <button data-target="jobcard">5. Job Card Form</button>
+  <button data-target="invoice">6. Invoice / Bill (Print)</button>
+  <button data-target="inventory">7. Inventory</button>
+  <button data-target="inventoryform">8. Add Inventory Item</button>
+  <button data-target="reports">9. Reports</button>
+</nav>
+
+<main>
+
+  <!-- LOGIN -->
+  <section class="screen active" id="login">
+    <div class="screen-label">Screen 1 — Login Page</div>
+    <div class="frame" data-title="LOGIN">
+      <div class="login-wrap">
+        <div class="login-card">
+          <div class="logo">LOGO</div>
+          <div class="field-label">Username</div>
+          <div class="field">username</div>
+          <div class="field-label">Password</div>
+          <div class="field">••••••••</div>
+          <div class="btn primary" style="margin-top:16px;">LOG IN</div>
+          <div class="links">
+            <span>Forgot password?</span>
+            <span>v1.0</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- DASHBOARD -->
+  <section class="screen" id="dashboard">
+    <div class="screen-label">Screen 2 — Dashboard</div>
+    <div class="frame" data-title="DASHBOARD">
+      <div class="dash-layout">
+        <div class="sidebar">
+          <div class="item current">▣ Dashboard</div>
+          <div class="item">Job Cards</div>
+          <div class="item">Appointments</div>
+          <div class="item">Inventory</div>
+          <div class="item">Reports</div>
+          <div class="item" style="margin-top:auto;">Logout</div>
+        </div>
+        <div class="dash-main">
+          <div class="topbar">
+            <span style="font-size:12px;">Welcome, Admin</span>
+            <div class="x-icon"></div>
+          </div>
+          <div class="cards-row">
+            <div class="frame stat-card" data-title="TOTAL JOBS"><div class="num">128</div><div class="lbl">Total Jobs</div></div>
+            <div class="frame stat-card" data-title="PENDING"><div class="num">14</div><div class="lbl">Pending Jobs</div></div>
+            <div class="frame stat-card" data-title="STOCK ALERT"><div class="num">3</div><div class="lbl">Inventory Alerts</div></div>
+          </div>
+          <div class="panel-row">
+            <div class="frame list-panel" data-title="RECENT JOB CARDS">
+              <div class="list-row"><span class="placeholder-text">JC-1042 · Toyota Axio</span><span class="tag">In Progress</span></div>
+              <div class="list-row"><span class="placeholder-text">JC-1041 · Honda Vezel</span><span class="tag">Completed</span></div>
+              <div class="list-row"><span class="placeholder-text">JC-1040 · Suzuki Alto</span><span class="tag">Pending</span></div>
+            </div>
+            <div class="frame calendar-panel" data-title="APPOINTMENTS CALENDAR" style="width:auto; flex:1;">
+              <div class="cal-header">
+                <span class="arrow">‹</span>
+                <span>AUGUST 2026</span>
+                <span class="arrow">›</span>
+              </div>
+              <div class="cal-grid">
+                <div class="dow">S</div><div class="dow">M</div><div class="dow">T</div><div class="dow">W</div><div class="dow">T</div><div class="dow">F</div><div class="dow">S</div>
+                <div class="cal-day muted">26</div><div class="cal-day muted">27</div><div class="cal-day muted">28</div><div class="cal-day muted">29</div><div class="cal-day muted">30</div><div class="cal-day muted">31</div><div class="cal-day">1</div>
+                <div class="cal-day">2</div><div class="cal-day">3<span class="dot"></span></div><div class="cal-day">4</div><div class="cal-day">5<span class="dot"></span></div><div class="cal-day">6</div><div class="cal-day">7</div><div class="cal-day">8</div>
+                <div class="cal-day">9</div><div class="cal-day">10<span class="dot"></span></div><div class="cal-day">11</div><div class="cal-day">12</div><div class="cal-day">13<span class="dot"></span></div><div class="cal-day">14</div><div class="cal-day">15</div>
+                <div class="cal-day">16</div><div class="cal-day">17<span class="dot"></span></div><div class="cal-day">18</div><div class="cal-day">19<span class="dot"></span></div><div class="cal-day today">20<span class="dot"></span></div><div class="cal-day">21<span class="dot"></span></div><div class="cal-day">22</div>
+                <div class="cal-day">23</div><div class="cal-day">24<span class="dot"></span></div><div class="cal-day">25</div><div class="cal-day">26</div><div class="cal-day">27</div><div class="cal-day">28<span class="dot"></span></div><div class="cal-day">29</div>
+                <div class="cal-day">30<span class="dot"></span></div><div class="cal-day">31</div><div class="cal-day muted">1</div><div class="cal-day muted">2</div><div class="cal-day muted">3</div><div class="cal-day muted">4</div><div class="cal-day muted">5</div>
+              </div>
+              <div class="cal-legend"><span class="dot"></span><span>Day has appointment(s) — click to view on Appointments page</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- JOB CARDS LIST -->
+  <section class="screen" id="jobcardslist">
+    <div class="screen-label">Screen 3 — Job Cards Page (list of all job cards created from the form)</div>
+    <div class="frame" data-title="JOB CARDS">
+      <div class="toolbar">
+        <div class="field search">Search by customer / vehicle no…</div>
+        <div class="btn primary">+ New Job Card</div>
+      </div>
+      <div class="toolbar" style="border-bottom:1px dashed var(--line-light);">
+        <span class="placeholder-text" style="margin-right:4px;">Filter by Status:</span>
+        <div class="status-filters">
+          <div class="chip active">All (12)</div>
+          <div class="chip">Pending (3)</div>
+          <div class="chip">In Progress (5)</div>
+          <div class="chip">Completed (4)</div>
+        </div>
+      </div>
+      <div class="toolbar" style="border-bottom:1px dashed var(--line-light);">
+        <span class="placeholder-text" style="margin-right:4px;">Sort by:</span>
+        <div class="field" style="width:160px;">Date Created (newest) ▾</div>
+      </div>
+      <table class="inv">
+        <tr>
+          <th>Job Card ID</th><th>Customer</th><th>Vehicle No</th><th>Mechanic</th>
+          <th>Date Created</th><th>Status</th><th>Next Service Date</th><th></th>
+        </tr>
+        <tr>
+          <td>JC-1042</td><td>A. Perera</td><td>WP CAB-1234</td><td>S. Kumara</td>
+          <td>10 Aug 2026</td><td><span class="tag">In Progress</span></td><td>—</td><td>View</td>
+        </tr>
+        <tr>
+          <td>JC-1041</td><td>K. Silva</td><td>WP KL-5566</td><td>R. Bandara</td>
+          <td>08 Aug 2026</td><td><span class="tag">Completed</span></td><td>08 Feb 2027</td><td>View</td>
+        </tr>
+        <tr>
+          <td>JC-1040</td><td>N. Fernando</td><td>WP CAJ-0912</td><td>S. Kumara</td>
+          <td>05 Aug 2026</td><td><span class="tag low">Pending</span></td><td>—</td><td>View</td>
+        </tr>
+        <tr>
+          <td>JC-1039</td><td>M. Jayawardena</td><td>WP GG-3345</td><td>R. Bandara</td>
+          <td>02 Aug 2026</td><td><span class="tag">Completed</span></td><td>02 Feb 2027</td><td>View</td>
+        </tr>
+      </table>
+      <div class="placeholder-text" style="padding:10px 18px;">
+        Note: every job card submitted on the Job Card Form (Screen 5) appears here as a new row. "Next Service Date" only fills in once a job is marked Completed.
+      </div>
+    </div>
+  </section>
+
+  <!-- APPOINTMENTS -->
+  <section class="screen" id="appointments">
+    <div class="screen-label">Screen 4 — Appointments Page (customer bookings, before a job card is opened)</div>
+    <div class="frame" data-title="APPOINTMENTS">
+      <div class="toolbar">
+        <div class="field search">Search by customer / vehicle no…</div>
+        <div class="btn primary">+ New Appointment</div>
+      </div>
+      <div class="toolbar" style="border-bottom:1px dashed var(--line-light);">
+        <div class="status-filters">
+          <div class="chip active">Today</div>
+          <div class="chip">This Week</div>
+          <div class="chip">All Upcoming</div>
+        </div>
+      </div>
+      <table class="inv">
+        <tr>
+          <th>Time</th><th>Customer</th><th>Vehicle No</th><th>Service Type</th><th>Status</th><th></th>
+        </tr>
+        <tr><td>09:00 AM</td><td>A. Perera</td><td>WP CAB-1234</td><td>Oil Change</td><td><span class="tag">Confirmed</span></td><td>✎</td></tr>
+        <tr><td>11:30 AM</td><td>K. Silva</td><td>WP KL-5566</td><td>Brake Check</td><td><span class="tag">Confirmed</span></td><td>✎</td></tr>
+        <tr><td>02:00 PM</td><td>N. Fernando</td><td>WP CAJ-0912</td><td>Full Service</td><td><span class="tag low">Pending</span></td><td>✎</td></tr>
+        <tr><td>04:30 PM</td><td>M. Jayawardena</td><td>WP GG-3345</td><td>Tyre Replacement</td><td><span class="tag">Confirmed</span></td><td>✎</td></tr>
+      </table>
+      <div class="placeholder-text" style="padding:10px 18px;">
+        Note: clicking "+ New Appointment" opens the popup form on Screen 4b. Once the customer arrives, staff convert the appointment into a Job Card (Screen 5) with one click, carrying over the customer and vehicle details.
+      </div>
+    </div>
+  </section>
+
+  <!-- NEW APPOINTMENT MODAL -->
+  <section class="screen" id="appointmentform">
+    <div class="screen-label">Screen 4b — New Appointment (popup form, opens on top of Screen 4)</div>
+    <div class="modal-backdrop">
+      <div class="frame modal-card" data-title="NEW APPOINTMENT">
+        <div class="modal-header">
+          <span>New Appointment</span>
+          <div class="x-icon"></div>
+        </div>
+        <div class="form-grid" style="grid-template-columns: 1fr;">
+          <div>
+            <div class="field-label">Customer Name</div>
+            <div class="field">e.g. A. Perera</div>
+          </div>
+          <div>
+            <div class="field-label">Contact Number</div>
+            <div class="field">07X XXX XXXX</div>
+          </div>
+          <div>
+            <div class="field-label">Vehicle Number</div>
+            <div class="field">e.g. WP CAB-1234</div>
+          </div>
+          <div>
+            <div class="field-label">Service Type</div>
+            <div class="field">Select service ▾</div>
+          </div>
+          <div style="display:flex; gap:12px;">
+            <div style="flex:1;">
+              <div class="field-label">Date</div>
+              <div class="field">DD / MM / YYYY</div>
+            </div>
+            <div style="flex:1;">
+              <div class="field-label">Time Slot</div>
+              <div class="field">Select slot ▾</div>
+            </div>
+          </div>
+          <div>
+            <div class="field-label">Notes (optional)</div>
+            <div class="box" style="height:50px;"></div>
+          </div>
+        </div>
+        <div class="form-actions">
+          <div class="btn">Cancel</div>
+          <div class="btn primary">Confirm Appointment</div>
+        </div>
+        <div class="placeholder-text" style="padding:0 22px 18px 22px;">
+          System checks the selected Date + Time Slot against existing bookings and blocks it if already taken.
+        </div>
+      </div>
+    </div>
+  </section>
+    </div>
+  </section>
+
+  <!-- JOB CARD FORM -->
+  <section class="screen" id="jobcard">
+    <div class="screen-label">Screen 5 — Job Card Form</div>
+    <div class="frame" data-title="NEW JOB CARD">
+      <div class="form-grid">
+        <div class="full section-title">Customer &amp; Vehicle Details</div>
+        <div>
+          <div class="field-label">Customer Name</div>
+          <div class="field">e.g. A. Perera</div>
+        </div>
+        <div>
+          <div class="field-label">Contact Number</div>
+          <div class="field">07X XXX XXXX</div>
+        </div>
+        <div>
+          <div class="field-label">Vehicle Number</div>
+          <div class="field">e.g. WP CAB-1234</div>
+        </div>
+        <div>
+          <div class="field-label">Vehicle Model</div>
+          <div class="field">e.g. Toyota Axio</div>
+        </div>
+
+        <div class="full section-title">Job Details</div>
+        <div class="full">
+          <div class="field-label">Job Description</div>
+          <div class="box" style="height:70px;"></div>
+        </div>
+        <div>
+          <div class="field-label">Assign Mechanic</div>
+          <div class="field">Select mechanic ▾</div>
+        </div>
+        <div>
+          <div class="field-label">Status</div>
+          <div class="field">Completed ▾</div>
+        </div>
+
+        <div class="full section-title">Service Completion (filled in when Status = Completed)</div>
+        <div>
+          <div class="field-label">Completion Date</div>
+          <div class="field">08 Aug 2026</div>
+        </div>
+        <div>
+          <div class="field-label">Next Service Date</div>
+          <div class="field">08 Feb 2027</div>
+        </div>
+        <div>
+          <div class="field-label">Next Service Mileage (optional)</div>
+          <div class="field">e.g. 45,000 km</div>
+        </div>
+      </div>
+
+      <div class="sticker-wrap">
+        <div class="placeholder-text">
+          When Status is set to Completed and Next Service Date is entered, the "Save Job Card" button changes to generate the customer's bill — which includes a printable service reminder sticker attached to it (see Screen 6 — Invoice / Bill).
+        </div>
+      </div>
+
+      <div class="form-actions">
+        <div class="btn">Cancel</div>
+        <div class="btn primary">Save &amp; Generate Bill →</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- INVOICE / BILL -->
+  <section class="screen" id="invoice">
+    <div class="screen-label">Screen 6 — Invoice / Bill (Print View) — printed and handed to the customer, with the service reminder sticker attached</div>
+    <div class="frame" data-title="PRINT PREVIEW">
+      <div class="toolbar">
+        <span class="placeholder-text">Print Preview — JC-1041</span>
+        <div style="display:flex; gap:8px;">
+          <div class="btn">Download PDF</div>
+          <div class="btn primary">🖶 Print Bill + Sticker</div>
+        </div>
+      </div>
+
+      <div style="padding:24px 30px;">
+        <!-- Bill header -->
+        <div style="display:flex; justify-content:space-between; border-bottom:1.5px solid var(--ink); padding-bottom:14px; margin-bottom:16px;">
+          <div>
+            <div style="font-size:14px; font-weight:bold;">OMEGA ENGINEERS SERVICE STATION</div>
+            <div class="placeholder-text">Solotrade Company · 123 Galle Road, Colombo</div>
+            <div class="placeholder-text">Tel: 011 XXX XXXX</div>
+          </div>
+          <div style="text-align:right;">
+            <div style="font-size:12px; font-weight:bold;">INVOICE</div>
+            <div class="placeholder-text">No: INV-1041</div>
+            <div class="placeholder-text">Date: 08 Aug 2026</div>
+          </div>
+        </div>
+
+        <!-- Bill to / job info -->
+        <div class="form-grid" style="padding:0 0 6px 0;">
+          <div>
+            <div class="field-label">Billed To</div>
+            <div class="placeholder-text">K. Silva · 07X XXX XXXX</div>
+          </div>
+          <div>
+            <div class="field-label">Vehicle</div>
+            <div class="placeholder-text">WP KL-5566 · Honda Vezel</div>
+          </div>
+          <div>
+            <div class="field-label">Job Card No.</div>
+            <div class="placeholder-text">JC-1041</div>
+          </div>
+          <div>
+            <div class="field-label">Mechanic</div>
+            <div class="placeholder-text">R. Bandara</div>
+          </div>
+        </div>
+
+        <!-- Itemized table -->
+        <table class="inv" style="margin-top:10px;">
+          <tr><th>Item / Service</th><th>Qty</th><th>Unit Price</th><th>Amount</th></tr>
+          <tr><td>Engine Oil 4L</td><td>1</td><td>Rs. 3,200</td><td>Rs. 3,200</td></tr>
+          <tr><td>Brake Pad Set</td><td>1</td><td>Rs. 5,500</td><td>Rs. 5,500</td></tr>
+          <tr><td>Labour Charge</td><td>—</td><td>—</td><td>Rs. 2,000</td></tr>
+        </table>
+        <div style="display:flex; justify-content:flex-end; padding:12px 14px;">
+          <div style="width:220px;">
+            <div class="list-row"><span>Subtotal</span><span>Rs. 10,700</span></div>
+            <div class="list-row"><span>Tax</span><span>Rs. 0</span></div>
+            <div class="list-row" style="font-weight:bold;"><span>Total</span><span>Rs. 10,700</span></div>
+          </div>
+        </div>
+
+        <!-- Perforated cut line -->
+        <div style="display:flex; align-items:center; gap:10px; margin:22px 0 18px 0;">
+          <div style="flex:1; border-top:1.5px dashed var(--line);"></div>
+          <span class="placeholder-text">✂ CUT ALONG LINE — DETACH STICKER BELOW</span>
+          <div style="flex:1; border-top:1.5px dashed var(--line);"></div>
+        </div>
+
+        <!-- Attached sticker -->
+        <div style="display:flex; justify-content:center;">
+          <div class="sticker">
+            <div class="brand">OMEGA ENGINEERS</div>
+            <div class="headline">Next Service Due</div>
+            <div class="row"><span>Vehicle</span><span>WP KL-5566</span></div>
+            <div class="row"><span>Date</span><span>08 Feb 2027</span></div>
+            <div class="row"><span>Mileage</span><span>45,000 km</span></div>
+            <div class="note">Keep this sticker on windshield</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- INVENTORY -->
+  <section class="screen" id="inventory">
+    <div class="screen-label">Screen 7 — Inventory Page</div>
+    <div class="frame" data-title="INVENTORY">
+      <div class="toolbar">
+        <div class="field search">Search item…</div>
+        <div class="btn primary">+ Add Item</div>
+      </div>
+      <table class="inv">
+        <tr><th>Item Name</th><th>Quantity</th><th>Unit Price</th><th>Status</th><th></th></tr>
+        <tr><td>Engine Oil 4L</td><td>32</td><td>Rs. 3,200</td><td><span class="tag">In Stock</span></td><td>✎</td></tr>
+        <tr><td>Brake Pad Set</td><td>4</td><td>Rs. 5,500</td><td><span class="tag low">Low Stock</span></td><td>✎</td></tr>
+        <tr><td>Air Filter</td><td>18</td><td>Rs. 1,100</td><td><span class="tag">In Stock</span></td><td>✎</td></tr>
+        <tr><td>Spark Plug</td><td>2</td><td>Rs. 650</td><td><span class="tag low">Low Stock</span></td><td>✎</td></tr>
+        <tr><td>Coolant 1L</td><td>25</td><td>Rs. 950</td><td><span class="tag">In Stock</span></td><td>✎</td></tr>
+      </table>
+    </div>
+  </section>
+
+  <!-- ADD INVENTORY ITEM FORM -->
+  <section class="screen" id="inventoryform">
+    <div class="screen-label">Screen 8 — Add Inventory Item (opens when "+ Add Item" is clicked on Screen 7)</div>
+    <div class="frame" data-title="NEW INVENTORY ITEM">
+      <div class="form-grid">
+        <div class="full section-title">Item Details</div>
+        <div>
+          <div class="field-label">Item Name</div>
+          <div class="field">e.g. Brake Pad Set</div>
+        </div>
+        <div>
+          <div class="field-label">Item Code / SKU</div>
+          <div class="field">e.g. INV-0234</div>
+        </div>
+        <div>
+          <div class="field-label">Category</div>
+          <div class="field">Select category ▾</div>
+        </div>
+        <div>
+          <div class="field-label">Supplier</div>
+          <div class="field">Select supplier ▾</div>
+        </div>
+
+        <div class="full section-title">Stock &amp; Pricing</div>
+        <div>
+          <div class="field-label">Quantity in Stock</div>
+          <div class="field">e.g. 20</div>
+        </div>
+        <div>
+          <div class="field-label">Unit</div>
+          <div class="field">pcs / litre / box ▾</div>
+        </div>
+        <div>
+          <div class="field-label">Unit Price (Rs.)</div>
+          <div class="field">e.g. 5,500</div>
+        </div>
+        <div>
+          <div class="field-label">Reorder Level (low stock alert)</div>
+          <div class="field">e.g. 5</div>
+        </div>
+
+        <div class="full section-title">Additional Info</div>
+        <div class="full">
+          <div class="field-label">Description / Notes</div>
+          <div class="box" style="height:60px;"></div>
+        </div>
+        <div>
+          <div class="field-label">Item Photo (optional)</div>
+          <div class="box" style="height:80px; display:flex; align-items:center; justify-content:center;">
+            <span class="placeholder-text">+ Upload image</span>
+          </div>
+        </div>
+      </div>
+      <div class="form-actions">
+        <div class="btn">Cancel</div>
+        <div class="btn primary">Save Item</div>
+      </div>
+      <div class="placeholder-text" style="padding:0 22px 18px 22px;">
+        Note: once saved, this item appears as a new row in the Inventory table (Screen 6). If Quantity falls at or below Reorder Level, it's auto-tagged "Low Stock" and shown as an alert on the Dashboard.
+      </div>
+    </div>
+  </section>
+  <section class="screen" id="reports">
+    <div class="screen-label">Screen 9 — Reports Page</div>
+    <div class="frame" data-title="REPORTS">
+      <div class="rep-toolbar">
+        <div class="field">Date Range: This Month ▾</div>
+        <div class="btn">Export PDF</div>
+      </div>
+      <div class="rep-body">
+        <div class="frame chart-box" data-title="MONTHLY JOBS">
+          <div class="cap">Jobs completed / month</div>
+          <div class="bars">
+            <div class="bar" style="height:40%;"></div>
+            <div class="bar" style="height:65%;"></div>
+            <div class="bar" style="height:50%;"></div>
+            <div class="bar" style="height:80%;"></div>
+            <div class="bar" style="height:60%;"></div>
+          </div>
+        </div>
+        <div class="frame chart-box" data-title="INVENTORY USAGE">
+          <div class="cap">Usage by category</div>
+          <div class="pie">PIE CHART</div>
+        </div>
+        <div class="frame chart-box" data-title="DAILY INCOME" style="flex-basis:100%;">
+          <div class="cap">Recent income summary</div>
+          <table class="table-mini">
+            <tr><th>Date</th><th>Jobs</th><th>Income</th></tr>
+            <tr><td>12 Aug 2026</td><td>6</td><td>Rs. 42,000</td></tr>
+            <tr><td>13 Aug 2026</td><td>4</td><td>Rs. 28,500</td></tr>
+            <tr><td>14 Aug 2026</td><td>7</td><td>Rs. 51,200</td></tr>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <footer class="note">
+    Note: These are low-fidelity wireframes intended to show layout and content structure only — not final colors, branding, or fonts. Include as Appendix B in the print-ready SRS / Proposal document.
+  </footer>
+
+</main>
+
+<script>
+  const buttons = document.querySelectorAll('#tabs button');
+  const screens = document.querySelectorAll('.screen');
+  buttons.forEach(btn => {
+    btn.addEventListener('click', () => {
+      buttons.forEach(b => b.classList.remove('active'));
+      screens.forEach(s => s.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById(btn.dataset.target).classList.add('active');
+    });
+  });
+</script>
+
+</body>
+</html>

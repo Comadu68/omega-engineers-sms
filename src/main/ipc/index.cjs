@@ -1,0 +1,31 @@
+const authIpc = require('./auth.ipc.cjs')
+const customersIpc = require('./customers.ipc.cjs')
+const vehiclesIpc = require('./vehicles.ipc.cjs')
+const appointmentsIpc = require('./appointments.ipc.cjs')
+const mechanicsIpc = require('./mechanics.ipc.cjs')
+const jobsIpc = require('./jobs.ipc.cjs')
+const inventoryIpc = require('./inventory.ipc.cjs')
+const invoicesIpc = require('./invoices.ipc.cjs')
+const paymentsIpc = require('./payments.ipc.cjs')
+const expensesIpc = require('./expenses.ipc.cjs')
+const reportsIpc = require('./reports.ipc.cjs')
+const backupIpc = require('./backup.ipc.cjs')
+const settingsIpc = require('./settings.ipc.cjs')
+
+const registerAllIpc = () => {
+  authIpc.register()
+  customersIpc.register()
+  vehiclesIpc.register()
+  appointmentsIpc.register()
+  mechanicsIpc.register()
+  jobsIpc.register()
+  inventoryIpc.register()
+  invoicesIpc.register()
+  paymentsIpc.register()
+  expensesIpc.register()
+  reportsIpc.register()
+  backupIpc.register()
+  settingsIpc.register()
+}
+
+module.exports = { registerAllIpc }

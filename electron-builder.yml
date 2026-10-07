@@ -1,0 +1,23 @@
+appId: com.omegaengineers.servicestation
+productName: Omega Engineers Service Station
+artifactName: "Omega Engineers Service Station Setup ${version}.${ext}"
+directories:
+  output: release
+files:
+  - dist/**/*
+  - src/main/**/*
+  - src/preload/**/*
+  - src/database/**/*
+  - assets/**/*
+  - package.json
+asar: true
+win:
+  target:
+    - nsis
+  icon: assets/icons/app-icon.ico
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: Omega Engineers Service Station
