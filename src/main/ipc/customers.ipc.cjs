@@ -21,6 +21,10 @@ const register = () => {
   ipcMain.handle('customers:remove', async (_, id) => {
     return customerService.remove(id)
   })
+
+  ipcMain.handle('customers:findDuplicates', async (_, { phone, excludeId } = {}) => {
+    return customerService.findDuplicates(phone, excludeId)
+  })
 }
 
 module.exports = { register }

@@ -22,7 +22,8 @@ contextBridge.exposeInMainWorld('omega', {
     get: (id) => ipcRenderer.invoke('customers:get', id),
     create: (data) => ipcRenderer.invoke('customers:create', data),
     update: (id, data) => ipcRenderer.invoke('customers:update', { id, data }),
-    remove: (id) => ipcRenderer.invoke('customers:remove', id)
+    remove: (id) => ipcRenderer.invoke('customers:remove', id),
+    findDuplicates: (phone, excludeId) => ipcRenderer.invoke('customers:findDuplicates', { phone, excludeId })
   },
   vehicles: {
     list: (filters) => ipcRenderer.invoke('vehicles:list', filters),
