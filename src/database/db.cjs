@@ -1,6 +1,7 @@
 const path = require('path')
 const fs = require('fs')
 const Database = require('better-sqlite3')
+const { normalizeSriLankanPhone } = require('../main/utils/phoneUtils.cjs')
 
 let dbInstance = null
 let currentDbPath = null
@@ -50,6 +51,12 @@ const initDb = (overridePath = null) => {
   dbInstance = new Database(dbPath)
   dbInstance.pragma('foreign_keys = ON')
   dbInstance.pragma('journal_mode = WAL')
+
+  // Register deterministic phone normalization function for duplicate detection & search
+  dbInstance.function('normalize_phone', { deterministic: true }, (val) => {
+    if (val === null || val === undefined) return ''
+    return normalizeSriLankanPhone(String(val)) || ''
+  })
 
   const schemaPath = path.join(__dirname, 'schema.sql')
   const seedPath = path.join(__dirname, 'seed.sql')

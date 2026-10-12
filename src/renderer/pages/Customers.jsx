@@ -37,7 +37,66 @@ export const Customers = ({ onNavigateToJob }) => {
   })
 
   const [formError, setFormError] = useState('')
+  const [fieldErrors, setFieldErrors] = useState({})
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [duplicateDialog, setDuplicateDialog] = useState(null)
+
+  const validateCustomerInputs = (form) => {
+    const errors = {}
+    const name = form.fullName ? form.fullName.trim() : ''
+    if (!name) {
+      errors.fullName = 'Customer full name is required.'
+    } else if (name.length < 2) {
+      errors.fullName = 'Full name must be at least 2 characters.'
+    } else if (!/\p{L}/u.test(name) || !/^[\p{L}\p{M}\s.'-]+$/u.test(name)) {
+      errors.fullName = 'Name may only contain English or Sinhala letters, spaces, dots, and hyphens (no numbers or symbols).'
+    }
+
+    const phone = form.phone ? form.phone.trim() : ''
+    if (!phone) {
+      errors.phone = 'Customer primary phone number is required.'
+    } else if (!/^[\d\s+\-.()]+$/.test(phone)) {
+      errors.phone = 'Phone number contains invalid characters.'
+    } else {
+      let cleaned = phone.replace(/[\s\-.()]/g, '')
+      if (cleaned.startsWith('+940')) cleaned = cleaned.slice(3)
+      else if (cleaned.startsWith('+94')) cleaned = '0' + cleaned.slice(3)
+      else if (cleaned.startsWith('00940')) cleaned = cleaned.slice(4)
+      else if (cleaned.startsWith('0094')) cleaned = '0' + cleaned.slice(4)
+      else if (cleaned.startsWith('940') && cleaned.length === 12) cleaned = cleaned.slice(2)
+      else if (cleaned.startsWith('94') && cleaned.length === 11) cleaned = '0' + cleaned.slice(2)
+
+      if (!/^0[1-9]\d{8}$/.test(cleaned)) {
+        errors.phone = 'Enter a valid 10-digit Sri Lankan phone number (e.g. 077 123 4567, 011 234 5678, or +94 77 123 4567).'
+      }
+    }
+
+    const alt = form.alternatePhone ? form.alternatePhone.trim() : ''
+    if (alt) {
+      if (!/^[\d\s+\-.()]+$/.test(alt)) {
+        errors.alternatePhone = 'Alternate phone contains invalid characters.'
+      } else {
+        let cleanedAlt = alt.replace(/[\s\-.()]/g, '')
+        if (cleanedAlt.startsWith('+940')) cleanedAlt = cleanedAlt.slice(3)
+        else if (cleanedAlt.startsWith('+94')) cleanedAlt = '0' + cleanedAlt.slice(3)
+        else if (cleanedAlt.startsWith('00940')) cleanedAlt = cleanedAlt.slice(4)
+        else if (cleanedAlt.startsWith('0094')) cleanedAlt = '0' + cleanedAlt.slice(4)
+        else if (cleanedAlt.startsWith('940') && cleanedAlt.length === 12) cleanedAlt = cleanedAlt.slice(2)
+        else if (cleanedAlt.startsWith('94') && cleanedAlt.length === 11) cleanedAlt = '0' + cleanedAlt.slice(2)
+
+        if (!/^0[1-9]\d{8}$/.test(cleanedAlt)) {
+          errors.alternatePhone = 'Enter a valid Sri Lankan alternate phone number.'
+        }
+      }
+    }
+
+    const email = form.email ? form.email.trim() : ''
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      errors.email = 'Please enter a valid email address (e.g. customer@example.com).'
+    }
+
+    return errors
+  }
 
   const loadCustomers = async () => {
     try {
@@ -65,21 +124,40 @@ export const Customers = ({ onNavigateToJob }) => {
     }
   }
 
-  const handleCreateCustomer = async (e) => {
-    e.preventDefault()
+  const handleCreateCustomer = async (e, allowDuplicate = false) => {
+    if (e && e.preventDefault) e.preventDefault()
     setFormError('')
-    if (!customerForm.fullName.trim() || !customerForm.phone.trim()) {
-      setFormError('Full Name and Phone Number are required.')
+    setFieldErrors({})
+
+    const errs = validateCustomerInputs(customerForm)
+    if (Object.keys(errs).length > 0) {
+      setFieldErrors(errs)
+      setFormError('Please correct the validation errors highlighted below.')
       return
     }
 
     try {
       setIsSubmitting(true)
-      const newCust = await window.omega.customers.create(customerForm)
+      const payload = { ...customerForm, allowDuplicatePhone: allowDuplicate }
+      const res = await window.omega.customers.create(payload)
+
+      if (res?.duplicateWarning) {
+        setDuplicateDialog({
+          duplicates: res.duplicates || [],
+          phone: customerForm.phone,
+          isEdit: false,
+          formPayload: { ...customerForm }
+        })
+        return
+      }
+
       setIsAddCustomerOpen(false)
+      setDuplicateDialog(null)
       setCustomerForm({ fullName: '', phone: '', alternatePhone: '', email: '', address: '', notes: '' })
-      loadCustomers()
-      openCustomerDetail(newCust.id)
+      await loadCustomers()
+      if (res?.id) {
+        openCustomerDetail(res.id)
+      }
     } catch (err) {
       setFormError(err.message || 'Failed to create customer.')
     } finally {
@@ -87,15 +165,40 @@ export const Customers = ({ onNavigateToJob }) => {
     }
   }
 
-  const handleUpdateCustomer = async (e) => {
-    e.preventDefault()
+  const handleUpdateCustomer = async (e, allowDuplicate = false) => {
+    if (e && e.preventDefault) e.preventDefault()
     setFormError('')
+    setFieldErrors({})
+
+    const errs = validateCustomerInputs(customerForm)
+    if (Object.keys(errs).length > 0) {
+      setFieldErrors(errs)
+      setFormError('Please correct the validation errors highlighted below.')
+      return
+    }
+
     try {
       setIsSubmitting(true)
-      await window.omega.customers.update(editingCustomer.id, customerForm)
+      const payload = { ...customerForm, allowDuplicatePhone: allowDuplicate }
+      const res = await window.omega.customers.update(editingCustomer.id, payload)
+
+      if (res?.duplicateWarning) {
+        setDuplicateDialog({
+          duplicates: res.duplicates || [],
+          phone: customerForm.phone,
+          isEdit: true,
+          editingId: editingCustomer.id,
+          formPayload: { ...customerForm }
+        })
+        return
+      }
+
       setEditingCustomer(null)
-      loadCustomers()
-      openCustomerDetail(editingCustomer.id)
+      setDuplicateDialog(null)
+      await loadCustomers()
+      if (editingCustomer?.id) {
+        openCustomerDetail(editingCustomer.id)
+      }
     } catch (err) {
       setFormError(err.message || 'Failed to update customer.')
     } finally {
@@ -418,16 +521,25 @@ export const Customers = ({ onNavigateToJob }) => {
           )}
           <form onSubmit={editingCustomer ? handleUpdateCustomer : handleCreateCustomer}>
             <div className="form-group">
-              <label className="form-label">Full Name <span className="req">*</span></label>
+              <label className="form-label">Full Name (Sinhala or English) <span className="req">*</span></label>
               <input
                 type="text"
                 className="form-input"
                 value={customerForm.fullName}
-                onChange={(e) => setCustomerForm({ ...customerForm, fullName: e.target.value })}
-                placeholder="e.g. Anura Perera"
+                onChange={(e) => {
+                  setCustomerForm({ ...customerForm, fullName: e.target.value })
+                  if (fieldErrors.fullName) setFieldErrors({ ...fieldErrors, fullName: '' })
+                }}
+                placeholder="e.g. Anura Perera or කමල් පෙරේරා"
                 required
                 autoFocus
+                style={fieldErrors.fullName ? { borderColor: '#EF4444' } : {}}
               />
+              {fieldErrors.fullName && (
+                <div style={{ color: '#EF4444', fontSize: '11px', marginTop: '4px' }}>
+                  {fieldErrors.fullName}
+                </div>
+              )}
             </div>
             <div className="form-row">
               <div className="form-group">
@@ -436,10 +548,19 @@ export const Customers = ({ onNavigateToJob }) => {
                   type="text"
                   className="form-input"
                   value={customerForm.phone}
-                  onChange={(e) => setCustomerForm({ ...customerForm, phone: e.target.value })}
-                  placeholder="e.g. 077 123 4567"
+                  onChange={(e) => {
+                    setCustomerForm({ ...customerForm, phone: e.target.value })
+                    if (fieldErrors.phone) setFieldErrors({ ...fieldErrors, phone: '' })
+                  }}
+                  placeholder="e.g. 077 123 4567 or +94 77 123 4567"
                   required
+                  style={fieldErrors.phone ? { borderColor: '#EF4444' } : {}}
                 />
+                {fieldErrors.phone && (
+                  <div style={{ color: '#EF4444', fontSize: '11px', marginTop: '4px' }}>
+                    {fieldErrors.phone}
+                  </div>
+                )}
               </div>
               <div className="form-group">
                 <label className="form-label">Alternate Phone</label>
@@ -447,9 +568,18 @@ export const Customers = ({ onNavigateToJob }) => {
                   type="text"
                   className="form-input"
                   value={customerForm.alternatePhone}
-                  onChange={(e) => setCustomerForm({ ...customerForm, alternatePhone: e.target.value })}
+                  onChange={(e) => {
+                    setCustomerForm({ ...customerForm, alternatePhone: e.target.value })
+                    if (fieldErrors.alternatePhone) setFieldErrors({ ...fieldErrors, alternatePhone: '' })
+                  }}
                   placeholder="e.g. 011 234 5678"
+                  style={fieldErrors.alternatePhone ? { borderColor: '#EF4444' } : {}}
                 />
+                {fieldErrors.alternatePhone && (
+                  <div style={{ color: '#EF4444', fontSize: '11px', marginTop: '4px' }}>
+                    {fieldErrors.alternatePhone}
+                  </div>
+                )}
               </div>
             </div>
             <div className="form-group">
@@ -458,9 +588,18 @@ export const Customers = ({ onNavigateToJob }) => {
                 type="email"
                 className="form-input"
                 value={customerForm.email}
-                onChange={(e) => setCustomerForm({ ...customerForm, email: e.target.value })}
+                onChange={(e) => {
+                  setCustomerForm({ ...customerForm, email: e.target.value })
+                  if (fieldErrors.email) setFieldErrors({ ...fieldErrors, email: '' })
+                }}
                 placeholder="e.g. customer@example.com"
+                style={fieldErrors.email ? { borderColor: '#EF4444' } : {}}
               />
+              {fieldErrors.email && (
+                <div style={{ color: '#EF4444', fontSize: '11px', marginTop: '4px' }}>
+                  {fieldErrors.email}
+                </div>
+              )}
             </div>
             <div className="form-group">
               <label className="form-label">Address</label>
@@ -483,6 +622,126 @@ export const Customers = ({ onNavigateToJob }) => {
               />
             </div>
           </form>
+        </Modal>
+      )}
+
+      {/* Duplicate Customer Phone Warning Modal */}
+      {duplicateDialog && (
+        <Modal
+          isOpen={true}
+          size="lg"
+          title="⚠️ Phone Number Already Registered"
+          onClose={() => setDuplicateDialog(null)}
+          footer={
+            <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', alignItems: 'center' }}>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => setDuplicateDialog(null)}
+                disabled={isSubmitting}
+              >
+                Cancel &amp; Edit Phone
+              </button>
+              <button
+                type="button"
+                className="btn"
+                style={{
+                  backgroundColor: '#D97706',
+                  color: '#FFFFFF',
+                  fontWeight: 600,
+                  border: 'none',
+                  padding: '8px 16px',
+                  borderRadius: '6px',
+                  cursor: isSubmitting ? 'not-allowed' : 'pointer',
+                  opacity: isSubmitting ? 0.7 : 1
+                }}
+                onClick={() => {
+                  if (duplicateDialog.isEdit) {
+                    handleUpdateCustomer(null, true)
+                  } else {
+                    handleCreateCustomer(null, true)
+                  }
+                }}
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? 'Saving...' : 'Create / Save Anyway (Shared Phone)'}
+              </button>
+            </div>
+          }
+        >
+          <div>
+            <div
+              style={{
+                background: '#FEF3C7',
+                border: '1px solid #FCD34D',
+                borderRadius: '8px',
+                padding: '12px 14px',
+                marginBottom: '16px',
+                color: '#92400E',
+                fontSize: '13px',
+                lineHeight: '1.5'
+              }}
+            >
+              <strong>Notice:</strong> The primary phone number{' '}
+              <strong>{duplicateDialog.phone}</strong> is already registered to existing customer record(s).
+              <div style={{ marginTop: '4px', fontSize: '12px' }}>
+                • To avoid creating duplicate records, choose <strong>"👉 Use Existing Customer"</strong> below.
+                <br />
+                • If this is a valid shared number (e.g. family member or company fleet), click{' '}
+                <strong>"Create / Save Anyway (Shared Phone)"</strong>.
+              </div>
+            </div>
+
+            <div style={{ marginBottom: '8px', fontWeight: 700, fontSize: '12px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+              Matching Customers ({duplicateDialog.duplicates.length})
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              {duplicateDialog.duplicates.map((dup) => (
+                <div
+                  key={dup.id}
+                  style={{
+                    border: '1px solid var(--border-color)',
+                    borderRadius: '8px',
+                    padding: '12px 14px',
+                    background: '#FFFFFF',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center'
+                  }}
+                >
+                  <div>
+                    <div style={{ fontWeight: 700, fontSize: '14px', color: 'var(--text-main)' }}>
+                      {dup.fullName}
+                    </div>
+                    <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                      📞 <strong>{dup.phone}</strong>
+                      {dup.alternatePhone && <span> • Alt: {dup.alternatePhone}</span>}
+                      {dup.email && <span> • ✉️ {dup.email}</span>}
+                    </div>
+                    <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                      🚗 {dup.vehicleCount || 0} vehicle(s) registered • 📋 {dup.jobCount || 0} job(s)
+                      {dup.address && <span> • 📍 {dup.address}</span>}
+                    </div>
+                  </div>
+                  <div>
+                    <button
+                      type="button"
+                      className="btn btn-primary btn-sm"
+                      onClick={() => {
+                        setDuplicateDialog(null)
+                        setIsAddCustomerOpen(false)
+                        setEditingCustomer(null)
+                        openCustomerDetail(dup.id)
+                      }}
+                    >
+                      👉 Use Existing Customer
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
         </Modal>
       )}
 

@@ -123,29 +123,61 @@ export const Inventory = ({ prefillReceiveItem = null }) => {
   const handleCreateItem = async (e) => {
     e.preventDefault()
     setFormError('')
-    if (!itemForm.name.trim()) {
+    const trimmedName = itemForm.name.trim()
+    if (!trimmedName) {
       setFormError('Item name is required.')
       return
     }
 
+    if (itemForm.sku && !itemForm.sku.trim()) {
+      setFormError('SKU cannot be whitespace-only.')
+      return
+    }
+
+    const trimmedMin = String(itemForm.minimumStockLevel ?? '').trim()
+    const minStock = Number(trimmedMin)
+    if (trimmedMin !== '' && (!Number.isFinite(minStock) || minStock < 0)) {
+      setFormError('Minimum stock level must be a non-negative finite number.')
+      return
+    }
+
+    const trimmedSell = String(itemForm.currentSellingPrice ?? '').trim()
+    const sellPrice = Number(trimmedSell)
+    if (trimmedSell !== '' && (!Number.isFinite(sellPrice) || sellPrice < 0)) {
+      setFormError('Current selling price must be a non-negative finite number.')
+      return
+    }
+
+    let initialBatch = null
+    const trimmedQty = String(itemForm.initialQty ?? '').trim()
+    if (trimmedQty !== '') {
+      const initQ = Number(trimmedQty)
+      if (!Number.isFinite(initQ) || initQ <= 0) {
+        setFormError('Initial batch quantity must be greater than 0.')
+        return
+      }
+      const trimmedCost = String(itemForm.initialUnitCost ?? '').trim()
+      const initCost = trimmedCost !== '' ? Number(trimmedCost) : 0
+      if (!Number.isFinite(initCost) || initCost < 0) {
+        setFormError('Initial unit cost must be a non-negative finite number.')
+        return
+      }
+      initialBatch = {
+        qty: initQ,
+        unitCost: initCost,
+        supplierId: itemForm.defaultSupplierId ? parseInt(itemForm.defaultSupplierId, 10) : null
+      }
+    }
+
     try {
       setIsSubmitting(true)
-      let initialBatch = null
-      if (parseFloat(itemForm.initialQty) > 0) {
-        initialBatch = {
-          qty: parseFloat(itemForm.initialQty),
-          unitCost: parseFloat(itemForm.initialUnitCost) || 0,
-          supplierId: itemForm.defaultSupplierId || null
-        }
-      }
-
       await window.omega.inventory.createItem({
-        sku: itemForm.sku.trim(),
-        name: itemForm.name.trim(),
+        sku: itemForm.sku ? itemForm.sku.trim() : '',
+        name: trimmedName,
         category: itemForm.category,
         defaultSupplierId: itemForm.defaultSupplierId ? parseInt(itemForm.defaultSupplierId, 10) : null,
-        minimumStockLevel: parseFloat(itemForm.minimumStockLevel) || 0,
-        currentSellingPrice: parseFloat(itemForm.currentSellingPrice) || 0,
+        minimumStockLevel: trimmedMin !== '' ? minStock : 5,
+        currentSellingPrice: trimmedSell !== '' ? sellPrice : 0,
         notes: itemForm.notes.trim(),
         initialBatch
       })
@@ -173,11 +205,22 @@ export const Inventory = ({ prefillReceiveItem = null }) => {
   const handleReceiveBatch = async (e) => {
     e.preventDefault()
     setFormError('')
-    const qty = parseFloat(batchForm.receivedQty)
-    const cost = parseFloat(batchForm.unitCost)
+    if (!batchForm.inventoryItemId) {
+      setFormError('Valid item is required.')
+      return
+    }
 
-    if (!batchForm.inventoryItemId || isNaN(qty) || qty <= 0) {
-      setFormError('Valid item and positive received quantity are required.')
+    const trimmedQty = String(batchForm.receivedQty ?? '').trim()
+    const qty = Number(trimmedQty)
+    if (trimmedQty === '' || !Number.isFinite(qty) || qty <= 0) {
+      setFormError('Received quantity must be a positive number greater than 0.')
+      return
+    }
+
+    const trimmedCost = String(batchForm.unitCost ?? '').trim()
+    const cost = trimmedCost !== '' ? Number(trimmedCost) : 0
+    if (!Number.isFinite(cost) || cost < 0) {
+      setFormError('Unit cost must be a non-negative finite number.')
       return
     }
 
@@ -190,7 +233,7 @@ export const Inventory = ({ prefillReceiveItem = null }) => {
         supplierDocumentNo: batchForm.supplierDocumentNo.trim(),
         receivedAt: batchForm.receivedAt,
         receivedQty: qty,
-        unitCost: isNaN(cost) ? 0 : cost,
+        unitCost: cost,
         expiryDate: batchForm.expiryDate || null,
         notes: batchForm.notes.trim()
       })
@@ -210,15 +253,40 @@ export const Inventory = ({ prefillReceiveItem = null }) => {
   const handleUpdateItem = async (e) => {
     e.preventDefault()
     setFormError('')
+    const trimmedName = itemForm.name.trim()
+    if (!trimmedName) {
+      setFormError('Item name is required.')
+      return
+    }
+
+    if (itemForm.sku && !itemForm.sku.trim()) {
+      setFormError('SKU cannot be whitespace-only.')
+      return
+    }
+
+    const trimmedMin = String(itemForm.minimumStockLevel ?? '').trim()
+    const minStock = Number(trimmedMin)
+    if (trimmedMin !== '' && (!Number.isFinite(minStock) || minStock < 0)) {
+      setFormError('Minimum stock level must be a non-negative finite number.')
+      return
+    }
+
+    const trimmedSell = String(itemForm.currentSellingPrice ?? '').trim()
+    const sellPrice = Number(trimmedSell)
+    if (trimmedSell !== '' && (!Number.isFinite(sellPrice) || sellPrice < 0)) {
+      setFormError('Current selling price must be a non-negative finite number.')
+      return
+    }
+
     try {
       setIsSubmitting(true)
       await window.omega.inventory.updateItem(editingItem.id, {
-        sku: itemForm.sku.trim(),
-        name: itemForm.name.trim(),
+        sku: itemForm.sku ? itemForm.sku.trim() : undefined,
+        name: trimmedName,
         category: itemForm.category,
         defaultSupplierId: itemForm.defaultSupplierId ? parseInt(itemForm.defaultSupplierId, 10) : null,
-        minimumStockLevel: parseFloat(itemForm.minimumStockLevel) || 0,
-        currentSellingPrice: parseFloat(itemForm.currentSellingPrice) || 0,
+        minimumStockLevel: trimmedMin !== '' ? minStock : undefined,
+        currentSellingPrice: trimmedSell !== '' ? sellPrice : undefined,
         notes: itemForm.notes.trim()
       })
       setEditingItem(null)
