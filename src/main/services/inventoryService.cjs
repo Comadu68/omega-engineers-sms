@@ -1,5 +1,95 @@
 const dbHelper = require('../../database/db.cjs')
 
+/**
+ * Strict parser for numeric inputs.
+ * Rejects:
+ * - null, undefined (required)
+ * - boolean, objects, arrays
+ * - strings with partial numbers like '12abc'
+ * - non-numeric strings like 'abc'
+ * - whitespace-only or empty strings
+ * - NaN, Infinity, -Infinity
+ * Accepts:
+ * - finite numbers (e.g. 10, 0, 4.5)
+ * - valid numeric strings (e.g. '10', '0', '4.5', '  4.5  ')
+ */
+const parseStrictNumber = (val, fieldName) => {
+  if (val === null || val === undefined) {
+    throw new Error(`${fieldName} is required.`)
+  }
+  if (typeof val === 'boolean') {
+    throw new Error(`${fieldName} must be a valid number, not a boolean.`)
+  }
+  if (typeof val === 'string') {
+    const trimmed = val.trim()
+    if (trimmed === '') {
+      throw new Error(`${fieldName} cannot be empty.`)
+    }
+    const num = Number(trimmed)
+    if (!Number.isFinite(num)) {
+      throw new Error(`${fieldName} must be a valid finite number.`)
+    }
+    return num
+  }
+  if (typeof val === 'number') {
+    if (!Number.isFinite(val)) {
+      throw new Error(`${fieldName} must be a valid finite number.`)
+    }
+    return val
+  }
+  throw new Error(`${fieldName} must be a valid number.`)
+}
+
+const validatePositiveNumber = (val, fieldName) => {
+  const num = parseStrictNumber(val, fieldName)
+  if (num <= 0) {
+    throw new Error(`${fieldName} must be greater than 0.`)
+  }
+  return num
+}
+
+const validateNonNegativeNumber = (val, fieldName) => {
+  const num = parseStrictNumber(val, fieldName)
+  if (num < 0) {
+    throw new Error(`${fieldName} cannot be negative.`)
+  }
+  return num
+}
+
+const validateItemName = (name) => {
+  if (name === undefined || name === null || typeof name !== 'string' || !name.trim()) {
+    throw new Error('Item name is required and cannot be empty or whitespace.')
+  }
+  return name.trim()
+}
+
+const validateCategory = (category) => {
+  if (category === undefined || category === null) return 'General Parts'
+  if (typeof category !== 'string' || !category.trim()) {
+    throw new Error('Category cannot be empty or whitespace.')
+  }
+  return category.trim()
+}
+
+const validateSku = (sku, existingItemId = null) => {
+  if (sku === undefined || sku === null || sku === '') {
+    return null
+  }
+  if (typeof sku !== 'string' || !sku.trim()) {
+    throw new Error('SKU / Part number cannot be whitespace-only.')
+  }
+  const cleanSku = sku.trim()
+  const dupQuery = existingItemId
+    ? 'SELECT id FROM inventory_items WHERE sku = ? AND id != ?'
+    : 'SELECT id FROM inventory_items WHERE sku = ?'
+  const dupParams = existingItemId ? [cleanSku, existingItemId] : [cleanSku]
+  const dup = dbHelper.queryOne(dupQuery, dupParams)
+  if (dup) {
+    throw new Error(`SKU / Part number "${cleanSku}" is already in use.`)
+  }
+  return cleanSku
+}
+
 const generateBatchNo = (itemId) => {
   const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '')
   const randomSuffix = Math.floor(100 + Math.random() * 900)
@@ -25,12 +115,12 @@ const list = ({ search = '', category = null, lowStockOnly = false } = {}) => {
   const conditions = []
   const params = []
 
-  if (category) {
+  if (category && category !== 'all' && typeof category === 'string' && category.trim()) {
     conditions.push('i.category = ?')
-    params.push(category)
+    params.push(category.trim())
   }
 
-  if (search && search.trim()) {
+  if (search && typeof search === 'string' && search.trim()) {
     conditions.push('(i.name LIKE ? OR i.sku LIKE ? OR i.category LIKE ?)')
     const term = `%${search.trim()}%`
     params.push(term, term, term)
@@ -56,6 +146,7 @@ const list = ({ search = '', category = null, lowStockOnly = false } = {}) => {
 }
 
 const get = (id) => {
+  if (!id) return null
   const item = dbHelper.queryOne(
     `SELECT i.id, i.sku, i.name, i.category, i.default_supplier_id AS defaultSupplierId,
             i.minimum_stock_level AS minimumStockLevel,
@@ -107,43 +198,80 @@ const createItem = ({
   currentSellingPrice = 0,
   notes = '',
   initialBatch = null
-}) => {
-  if (!name) throw new Error('Item name is required.')
+} = {}) => {
+  const cleanName = validateItemName(name)
+  const cleanCategory = validateCategory(category)
+  let cleanSku = validateSku(sku)
+  if (!cleanSku) {
+    cleanSku = `INV-${Math.floor(1000 + Math.random() * 9000)}`
+    while (dbHelper.queryOne('SELECT id FROM inventory_items WHERE sku = ?', [cleanSku])) {
+      cleanSku = `INV-${Math.floor(1000 + Math.random() * 9000)}`
+    }
+  }
 
-  const generatedSku = sku && sku.trim() ? sku.trim() : `INV-${Math.floor(1000 + Math.random() * 9000)}`
+  const cleanMinStock = minimumStockLevel !== undefined && minimumStockLevel !== null
+    ? validateNonNegativeNumber(minimumStockLevel, 'Minimum stock level')
+    : 5
+
+  const cleanSellingPrice = currentSellingPrice !== undefined && currentSellingPrice !== null
+    ? validateNonNegativeNumber(currentSellingPrice, 'Current selling price')
+    : 0
+
+  let parsedInitialBatch = null
+  if (initialBatch && typeof initialBatch === 'object') {
+    if (initialBatch.qty !== undefined && initialBatch.qty !== null && initialBatch.qty !== '') {
+      const bQty = validatePositiveNumber(initialBatch.qty, 'Initial batch quantity')
+      const bCost = initialBatch.unitCost !== undefined && initialBatch.unitCost !== null && initialBatch.unitCost !== ''
+        ? validateNonNegativeNumber(initialBatch.unitCost, 'Initial batch unit cost')
+        : 0
+      parsedInitialBatch = {
+        qty: bQty,
+        unitCost: bCost,
+        supplierId: initialBatch.supplierId || defaultSupplierId || null,
+        supplierDocumentNo: initialBatch.supplierDocumentNo || '',
+        receivedAt: initialBatch.receivedAt || new Date().toISOString().slice(0, 10),
+        batchNo: initialBatch.batchNo || null,
+        expiryDate: initialBatch.expiryDate || null,
+        notes: initialBatch.notes || ''
+      }
+    }
+  }
 
   return dbHelper.runTransaction(() => {
     const res = dbHelper.runSql(
       `INSERT INTO inventory_items (sku, name, category, default_supplier_id, minimum_stock_level, current_selling_price, notes)
        VALUES (?, ?, ?, ?, ?, ?, ?)`,
       [
-        generatedSku,
-        name.trim(),
-        category.trim(),
+        cleanSku,
+        cleanName,
+        cleanCategory,
         defaultSupplierId || null,
-        Math.max(0, parseFloat(minimumStockLevel) || 0),
-        Math.max(0, parseFloat(currentSellingPrice) || 0),
-        notes.trim()
+        cleanMinStock,
+        cleanSellingPrice,
+        notes ? notes.trim() : ''
       ]
     )
     const itemId = res.lastInsertRowid
 
-    if (initialBatch && parseFloat(initialBatch.qty) > 0) {
-      const batchNo = initialBatch.batchNo || generateBatchNo(itemId)
+    if (parsedInitialBatch) {
+      const batchNo = parsedInitialBatch.batchNo && parsedInitialBatch.batchNo.trim()
+        ? parsedInitialBatch.batchNo.trim()
+        : generateBatchNo(itemId)
+
       dbHelper.runSql(
         `INSERT INTO inventory_batches (batch_no, inventory_item_id, supplier_id, supplier_document_no, received_at, received_qty, remaining_qty, unit_cost, expiry_date, notes)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           batchNo,
           itemId,
-          initialBatch.supplierId || defaultSupplierId || null,
-          initialBatch.supplierDocumentNo || '',
-          initialBatch.receivedAt || new Date().toISOString().slice(0, 10),
-          parseFloat(initialBatch.qty),
-          parseFloat(initialBatch.qty),
-          Math.max(0, parseFloat(initialBatch.unitCost) || 0),
-          initialBatch.expiryDate || null,
-          initialBatch.notes || ''
+          parsedInitialBatch.supplierId,
+          parsedInitialBatch.supplierDocumentNo,
+          parsedInitialBatch.receivedAt,
+          parsedInitialBatch.qty,
+          parsedInitialBatch.qty,
+          parsedInitialBatch.unitCost,
+          parsedInitialBatch.expiryDate,
+          parsedInitialBatch.notes
         ]
       )
     }
@@ -153,43 +281,77 @@ const createItem = ({
 }
 
 const updateItem = (id, data) => {
+  if (!id) throw new Error('Item id is required.')
   const existing = dbHelper.queryOne('SELECT id FROM inventory_items WHERE id = ?', [id])
   if (!existing) throw new Error('Item not found.')
+  if (!data || typeof data !== 'object') throw new Error('Update data is required.')
 
-  if (data.sku) {
-    const dup = dbHelper.queryOne(
-      'SELECT id FROM inventory_items WHERE sku = ? AND id != ?',
-      [data.sku.trim(), id]
-    )
-    if (dup) throw new Error(`SKU / Part number ${data.sku} is already in use.`)
+  let cleanSku = undefined
+  if (data.sku !== undefined && data.sku !== null) {
+    if (typeof data.sku !== 'string' || !data.sku.trim()) {
+      throw new Error('SKU / Part number cannot be whitespace-only.')
+    }
+    cleanSku = validateSku(data.sku, id)
   }
 
-  dbHelper.runSql(
-    `UPDATE inventory_items
-     SET sku = COALESCE(?, sku),
-         name = COALESCE(?, name),
-         category = COALESCE(?, category),
-         default_supplier_id = COALESCE(?, default_supplier_id),
-         minimum_stock_level = COALESCE(?, minimum_stock_level),
-         current_selling_price = COALESCE(?, current_selling_price),
-         notes = COALESCE(?, notes),
-         is_active = COALESCE(?, is_active),
-         updated_at = CURRENT_TIMESTAMP
-     WHERE id = ?`,
-    [
-      data.sku?.trim() || null,
-      data.name?.trim() || null,
-      data.category?.trim() || null,
-      data.defaultSupplierId !== undefined ? data.defaultSupplierId : null,
-      data.minimumStockLevel !== undefined ? Math.max(0, parseFloat(data.minimumStockLevel)) : null,
-      data.currentSellingPrice !== undefined ? Math.max(0, parseFloat(data.currentSellingPrice)) : null,
-      data.notes?.trim() ?? null,
-      data.isActive !== undefined ? data.isActive : null,
-      id
-    ]
-  )
+  let cleanName = undefined
+  if (data.name !== undefined && data.name !== null) {
+    cleanName = validateItemName(data.name)
+  }
 
-  return get(id)
+  let cleanCategory = undefined
+  if (data.category !== undefined && data.category !== null) {
+    cleanCategory = validateCategory(data.category)
+  }
+
+  let cleanMinStock = undefined
+  if (data.minimumStockLevel !== undefined && data.minimumStockLevel !== null) {
+    cleanMinStock = validateNonNegativeNumber(data.minimumStockLevel, 'Minimum stock level')
+  }
+
+  let cleanSellingPrice = undefined
+  if (data.currentSellingPrice !== undefined && data.currentSellingPrice !== null) {
+    cleanSellingPrice = validateNonNegativeNumber(data.currentSellingPrice, 'Current selling price')
+  }
+
+  let cleanIsActive = undefined
+  if (data.isActive !== undefined && data.isActive !== null) {
+    if (data.isActive !== 0 && data.isActive !== 1 && data.isActive !== true && data.isActive !== false) {
+      throw new Error('isActive must be 0, 1, true, or false.')
+    }
+    cleanIsActive = data.isActive ? 1 : 0
+  }
+
+  return dbHelper.runTransaction(() => {
+    dbHelper.runSql(
+      `UPDATE inventory_items
+       SET sku = COALESCE(?, sku),
+           name = COALESCE(?, name),
+           category = COALESCE(?, category),
+           default_supplier_id = CASE WHEN ? THEN ? ELSE default_supplier_id END,
+           minimum_stock_level = COALESCE(?, minimum_stock_level),
+           current_selling_price = COALESCE(?, current_selling_price),
+           notes = CASE WHEN ? THEN ? ELSE notes END,
+           is_active = COALESCE(?, is_active),
+           updated_at = CURRENT_TIMESTAMP
+       WHERE id = ?`,
+      [
+        cleanSku !== undefined ? cleanSku : null,
+        cleanName !== undefined ? cleanName : null,
+        cleanCategory !== undefined ? cleanCategory : null,
+        data.defaultSupplierId !== undefined ? 1 : 0,
+        data.defaultSupplierId !== undefined ? (data.defaultSupplierId || null) : null,
+        cleanMinStock !== undefined ? cleanMinStock : null,
+        cleanSellingPrice !== undefined ? cleanSellingPrice : null,
+        data.notes !== undefined ? 1 : 0,
+        data.notes !== undefined ? (data.notes ? data.notes.trim() : '') : null,
+        cleanIsActive !== undefined ? cleanIsActive : null,
+        id
+      ]
+    )
+
+    return get(id)
+  })
 }
 
 const receiveBatch = ({
@@ -199,49 +361,73 @@ const receiveBatch = ({
   supplierDocumentNo = '',
   receivedAt = '',
   receivedQty,
-  unitCost,
+  unitCost = 0,
   expiryDate = null,
   notes = ''
-}) => {
-  if (!inventoryItemId || !receivedQty || parseFloat(receivedQty) <= 0) {
-    throw new Error('Valid item and received quantity are required.')
+} = {}) => {
+  if (!inventoryItemId) {
+    throw new Error('Inventory item is required.')
   }
-  const cost = parseFloat(unitCost) || 0
-  const qty = parseFloat(receivedQty)
-  const batchNumber = batchNo && batchNo.trim() ? batchNo.trim() : generateBatchNo(inventoryItemId)
+  const item = dbHelper.queryOne('SELECT id, name FROM inventory_items WHERE id = ?', [inventoryItemId])
+  if (!item) {
+    throw new Error('Inventory item not found.')
+  }
+
+  const qty = validatePositiveNumber(receivedQty, 'Received quantity')
+  const cost = unitCost !== undefined && unitCost !== null && unitCost !== ''
+    ? validateNonNegativeNumber(unitCost, 'Unit cost')
+    : 0
+
+  let batchNumber = batchNo && typeof batchNo === 'string' && batchNo.trim()
+    ? batchNo.trim()
+    : generateBatchNo(inventoryItemId)
+
+  if (batchNo && typeof batchNo === 'string' && batchNo.trim()) {
+    const dup = dbHelper.queryOne('SELECT id FROM inventory_batches WHERE batch_no = ?', [batchNumber])
+    if (dup) {
+      throw new Error(`Batch number "${batchNumber}" is already in use.`)
+    }
+  }
+
   const dateStr = receivedAt || new Date().toISOString().slice(0, 10)
 
-  const result = dbHelper.runSql(
-    `INSERT INTO inventory_batches (batch_no, inventory_item_id, supplier_id, supplier_document_no, received_at, received_qty, remaining_qty, unit_cost, expiry_date, notes)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [
-      batchNumber,
-      inventoryItemId,
-      supplierId || null,
-      supplierDocumentNo.trim(),
-      dateStr,
-      qty,
-      qty,
-      cost,
-      expiryDate || null,
-      notes.trim()
-    ]
-  )
+  return dbHelper.runTransaction(() => {
+    const result = dbHelper.runSql(
+      `INSERT INTO inventory_batches (batch_no, inventory_item_id, supplier_id, supplier_document_no, received_at, received_qty, remaining_qty, unit_cost, expiry_date, notes)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        batchNumber,
+        inventoryItemId,
+        supplierId || null,
+        supplierDocumentNo ? supplierDocumentNo.trim() : '',
+        dateStr,
+        qty,
+        qty,
+        cost,
+        expiryDate || null,
+        notes ? notes.trim() : ''
+      ]
+    )
 
-  return dbHelper.queryOne(
-    `SELECT b.*, s.name AS supplierName
-     FROM inventory_batches b
-     LEFT JOIN suppliers s ON s.id = b.supplier_id
-     WHERE b.id = ?`,
-    [result.lastInsertRowid]
-  )
+    return dbHelper.queryOne(
+      `SELECT b.*, s.name AS supplierName
+       FROM inventory_batches b
+       LEFT JOIN suppliers s ON s.id = b.supplier_id
+       WHERE b.id = ?`,
+      [result.lastInsertRowid]
+    )
+  })
 }
 
 /**
  * Consumes parts using FIFO algorithm across oldest active batches.
  * Creates snapshots in job_parts table and reduces inventory_batches.remaining_qty.
+ * If jobCardId is invalid or a subsequent step fails, transaction automatically rolls back.
  */
 const consumeFifo = (jobCardId, inventoryItemId, requiredQty, sellingPriceOverride = null, userId = null) => {
+  if (!inventoryItemId) throw new Error('Inventory item is required.')
+  const needed = validatePositiveNumber(requiredQty, 'Quantity')
+
   return dbHelper.runTransaction(() => {
     const item = dbHelper.queryOne(
       'SELECT id, name, current_selling_price FROM inventory_items WHERE id = ?',
@@ -249,9 +435,10 @@ const consumeFifo = (jobCardId, inventoryItemId, requiredQty, sellingPriceOverri
     )
     if (!item) throw new Error('Inventory item not found.')
 
-    const sellingPrice = sellingPriceOverride !== null && sellingPriceOverride !== undefined
-      ? parseFloat(sellingPriceOverride)
-      : item.current_selling_price
+    let sellingPrice = item.current_selling_price
+    if (sellingPriceOverride !== null && sellingPriceOverride !== undefined && sellingPriceOverride !== '') {
+      sellingPrice = validateNonNegativeNumber(sellingPriceOverride, 'Selling price')
+    }
 
     // Find all active batches ordered by received_at ASC, id ASC
     const activeBatches = dbHelper.queryAll(
@@ -263,8 +450,6 @@ const consumeFifo = (jobCardId, inventoryItemId, requiredQty, sellingPriceOverri
     )
 
     const totalAvailable = activeBatches.reduce((acc, b) => acc + b.remaining_qty, 0)
-    let needed = parseFloat(requiredQty)
-    if (needed <= 0) throw new Error('Quantity must be greater than 0.')
 
     if (totalAvailable < needed) {
       throw new Error(
@@ -272,12 +457,13 @@ const consumeFifo = (jobCardId, inventoryItemId, requiredQty, sellingPriceOverri
       )
     }
 
+    let remainingNeeded = needed
     const createdParts = []
 
     for (const batch of activeBatches) {
-      if (needed <= 0) break
+      if (remainingNeeded <= 0) break
 
-      const deduct = Math.min(batch.remaining_qty, needed)
+      const deduct = Math.min(batch.remaining_qty, remainingNeeded)
       const newRemaining = batch.remaining_qty - deduct
 
       // Update batch remaining
@@ -286,7 +472,9 @@ const consumeFifo = (jobCardId, inventoryItemId, requiredQty, sellingPriceOverri
         [newRemaining, batch.id]
       )
 
-      // Insert job_parts row with snapshots
+      // Insert job_parts row with snapshots.
+      // If jobCardId is an invalid foreign key, SQLite foreign key constraint
+      // deterministically fails here, rolling back the batch update above.
       const res = dbHelper.runSql(
         `INSERT INTO job_parts (job_card_id, inventory_item_id, inventory_batch_id, qty, unit_cost_at_use, selling_price_at_use, added_by)
          VALUES (?, ?, ?, ?, ?, ?, ?)`,
@@ -313,7 +501,7 @@ const consumeFifo = (jobCardId, inventoryItemId, requiredQty, sellingPriceOverri
         lineTotal: deduct * sellingPrice
       })
 
-      needed -= deduct
+      remainingNeeded -= deduct
     }
 
     return createdParts
@@ -324,6 +512,7 @@ const consumeFifo = (jobCardId, inventoryItemId, requiredQty, sellingPriceOverri
  * Restores parts back to the respective inventory batch when removed from a job card.
  */
 const restorePartQty = (jobPartId) => {
+  if (!jobPartId) throw new Error('Job part ID is required.')
   return dbHelper.runTransaction(() => {
     const part = dbHelper.queryOne(
       'SELECT id, inventory_batch_id, qty FROM job_parts WHERE id = ?',
