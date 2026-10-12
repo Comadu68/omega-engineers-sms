@@ -305,6 +305,8 @@ const deleteTask = (taskId) => {
 }
 
 const addPart = (jobId, { inventoryItemId, qty, sellingPriceOverride = null, userId = null }) => {
+  const job = dbHelper.queryOne('SELECT id FROM job_cards WHERE id = ?', [jobId])
+  if (!job) throw new Error('Job Card not found.')
   inventoryService.consumeFifo(jobId, inventoryItemId, qty, sellingPriceOverride, userId)
   return get(jobId)
 }
