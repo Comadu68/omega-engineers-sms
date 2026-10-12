@@ -2,7 +2,36 @@ import React, { useEffect, useState } from 'react'
 import { Modal } from '../components/Modal'
 import { Badge } from '../components/Badge'
 
+export const fetchSettingsScreenData = async (omegaApi = window.omega, currentUser = null) => {
+  const isAdmin = currentUser?.role === 'admin_owner'
+  const [allSettings, allBackups, logs] = await Promise.all([
+    omegaApi.settings.getAll(),
+    omegaApi.backup.list(),
+    omegaApi.settings.getAuditLogs({ limit: 30 })
+  ])
+
+  let allUsers = []
+  if (isAdmin) {
+    try {
+      allUsers = await omegaApi.auth.getUsers()
+    } catch (err) {
+      console.error('Failed to load staff accounts:', err)
+      allUsers = []
+    }
+  }
+
+  return {
+    isAdmin,
+    settings: allSettings,
+    backups: allBackups,
+    users: allUsers,
+    auditLogs: logs
+  }
+}
+
 export const Settings = ({ currentUser, onDatabaseRestored }) => {
+  const isAdmin = currentUser?.role === 'admin_owner'
+
   const [settings, setSettings] = useState({
     station_name: 'Omega Engineers Service Station',
     company_name: 'Solotrade Company',
@@ -29,7 +58,11 @@ export const Settings = ({ currentUser, onDatabaseRestored }) => {
     role: 'receptionist_service_advisor',
     password: ''
   })
-  const [passwordForm, setPasswordForm] = useState({ newPassword: '', confirmPassword: '' })
+  const [passwordForm, setPasswordForm] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: ''
+  })
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false)
   const [selectedUserForPassword, setSelectedUserForPassword] = useState(null)
 
@@ -39,16 +72,11 @@ export const Settings = ({ currentUser, onDatabaseRestored }) => {
   const loadSettingsData = async () => {
     try {
       setLoading(true)
-      const [allSettings, allBackups, allUsers, logs] = await Promise.all([
-        window.omega.settings.getAll(),
-        window.omega.backup.list(),
-        window.omega.auth.getUsers(),
-        window.omega.settings.getAuditLogs({ limit: 30 })
-      ])
-      setSettings(allSettings)
-      setBackups(allBackups)
-      setUsers(allUsers)
-      setAuditLogs(logs)
+      const data = await fetchSettingsScreenData(window.omega, currentUser)
+      setSettings(data.settings)
+      setBackups(data.backups)
+      setUsers(data.users)
+      setAuditLogs(data.auditLogs)
     } catch (err) {
       console.error('Failed to load settings:', err)
     } finally {
@@ -58,7 +86,7 @@ export const Settings = ({ currentUser, onDatabaseRestored }) => {
 
   useEffect(() => {
     loadSettingsData()
-  }, [])
+  }, [currentUser?.id, currentUser?.role])
 
   const handleSaveSettings = async (e) => {
     e.preventDefault()
@@ -121,6 +149,10 @@ export const Settings = ({ currentUser, onDatabaseRestored }) => {
   const handleCreateUser = async (e) => {
     e.preventDefault()
     setFormError('')
+    if (!isAdmin) {
+      setFormError('Access denied: Administrator privileges are required.')
+      return
+    }
     if (!userForm.username.trim() || !userForm.displayName.trim() || !userForm.password) {
       setFormError('All fields are required.')
       return
@@ -148,6 +180,10 @@ export const Settings = ({ currentUser, onDatabaseRestored }) => {
   const handleUpdateUser = async (e) => {
     e.preventDefault()
     setFormError('')
+    if (!isAdmin) {
+      setFormError('Access denied: Administrator privileges are required.')
+      return
+    }
     try {
       setIsSubmitting(true)
       await window.omega.auth.updateUser(editingUser.id, {
@@ -168,6 +204,11 @@ export const Settings = ({ currentUser, onDatabaseRestored }) => {
   const handleChangePassword = async (e) => {
     e.preventDefault()
     setFormError('')
+    const requiresCurrentPassword = !isAdmin && selectedUserForPassword?.id === currentUser?.id
+    if (requiresCurrentPassword && !passwordForm.currentPassword) {
+      setFormError('Current password is required to change your password.')
+      return
+    }
     if (!passwordForm.newPassword || passwordForm.newPassword.length < 4) {
       setFormError('Password must be at least 4 characters long.')
       return
@@ -179,10 +220,14 @@ export const Settings = ({ currentUser, onDatabaseRestored }) => {
 
     try {
       setIsSubmitting(true)
-      await window.omega.auth.changePassword(selectedUserForPassword.id, passwordForm.newPassword)
+      await window.omega.auth.changePassword(
+        selectedUserForPassword.id,
+        passwordForm.newPassword,
+        passwordForm.currentPassword || undefined
+      )
       setIsPasswordModalOpen(false)
       setSelectedUserForPassword(null)
-      setPasswordForm({ newPassword: '', confirmPassword: '' })
+      setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' })
       alert('✓ Password updated successfully.')
     } catch (err) {
       setFormError(err.message || 'Failed to change password.')
@@ -389,7 +434,7 @@ export const Settings = ({ currentUser, onDatabaseRestored }) => {
           <div className="card">
             <div className="card-header">
               <h3 className="card-title">Staff User Management</h3>
-              {currentUser?.role === 'admin_owner' && (
+              {isAdmin && (
                 <button
                   type="button"
                   className="btn btn-primary btn-sm"
@@ -404,54 +449,79 @@ export const Settings = ({ currentUser, onDatabaseRestored }) => {
               )}
             </div>
 
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>Display Name</th>
-                  <th>Username</th>
-                  <th>Role</th>
-                  <th>Status</th>
-                  <th>Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {users.map((u) => (
-                  <tr key={u.id}>
-                    <td>
-                      <div style={{ fontWeight: 700 }}>{u.displayName}</div>
-                    </td>
-                    <td style={{ color: 'var(--text-muted)' }}>{u.username}</td>
-                    <td>
-                      <span style={{ fontSize: '11px', textTransform: 'capitalize', fontWeight: 600, color: 'var(--primary)' }}>
-                        {u.role ? u.role.replace(/_/g, ' ') : ''}
-                      </span>
-                    </td>
-                    <td>
-                      <Badge
-                        status={u.isActive ? 'available' : 'off_duty'}
-                        text={u.isActive ? 'Active' : 'Inactive'}
-                      />
-                    </td>
-                    <td>
-                      <div style={{ display: 'flex', gap: '4px' }}>
-                        <button
-                          type="button"
-                          className="btn btn-secondary btn-sm"
-                          style={{ padding: '2px 6px', fontSize: '11px' }}
-                          onClick={() => {
-                            setSelectedUserForPassword(u)
-                            setPasswordForm({ newPassword: '', confirmPassword: '' })
-                            setIsPasswordModalOpen(true)
-                          }}
-                        >
-                          🔑 Key
-                        </button>
-                        {currentUser?.role === 'admin_owner' && (
+            {!isAdmin ? (
+              <div style={{ padding: '12px', background: 'var(--bg-main)', borderRadius: '8px', fontSize: '12px', color: 'var(--text-muted)' }}>
+                <div style={{ fontWeight: 700, color: 'var(--text-main)', marginBottom: '4px' }}>
+                  🔒 Administrator Access Required
+                </div>
+                <p style={{ margin: '0 0 10px 0' }}>
+                  Viewing staff accounts, creating users, changing roles, and deactivating accounts are restricted to Administrator / Owner accounts.
+                </p>
+                {currentUser && (
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-sm"
+                    onClick={() => {
+                      setFormError('')
+                      setSelectedUserForPassword(currentUser)
+                      setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' })
+                      setIsPasswordModalOpen(true)
+                    }}
+                  >
+                    🔑 Change My Password
+                  </button>
+                )}
+              </div>
+            ) : (
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>Display Name</th>
+                    <th>Username</th>
+                    <th>Role</th>
+                    <th>Status</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {users.map((u) => (
+                    <tr key={u.id}>
+                      <td>
+                        <div style={{ fontWeight: 700 }}>{u.displayName}</div>
+                      </td>
+                      <td style={{ color: 'var(--text-muted)' }}>{u.username}</td>
+                      <td>
+                        <span style={{ fontSize: '11px', textTransform: 'capitalize', fontWeight: 600, color: 'var(--primary)' }}>
+                          {u.role ? u.role.replace(/_/g, ' ') : ''}
+                        </span>
+                      </td>
+                      <td>
+                        <Badge
+                          status={u.isActive ? 'available' : 'off_duty'}
+                          text={u.isActive ? 'Active' : 'Inactive'}
+                        />
+                      </td>
+                      <td>
+                        <div style={{ display: 'flex', gap: '4px' }}>
                           <button
                             type="button"
                             className="btn btn-secondary btn-sm"
                             style={{ padding: '2px 6px', fontSize: '11px' }}
                             onClick={() => {
+                              setFormError('')
+                              setSelectedUserForPassword(u)
+                              setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' })
+                              setIsPasswordModalOpen(true)
+                            }}
+                          >
+                            🔑 Key
+                          </button>
+                          <button
+                            type="button"
+                            className="btn btn-secondary btn-sm"
+                            style={{ padding: '2px 6px', fontSize: '11px' }}
+                            onClick={() => {
+                              setFormError('')
                               setEditingUser(u)
                               setUserForm({
                                 displayName: u.displayName,
@@ -462,13 +532,13 @@ export const Settings = ({ currentUser, onDatabaseRestored }) => {
                           >
                             ✏️
                           </button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
           </div>
 
           {/* Audit Trail Log */}
@@ -518,7 +588,7 @@ export const Settings = ({ currentUser, onDatabaseRestored }) => {
       </div>
 
       {/* Add User Modal */}
-      {isAddUserOpen && (
+      {isAdmin && isAddUserOpen && (
         <Modal
           isOpen={true}
           title="Add Staff User Account"
@@ -607,7 +677,7 @@ export const Settings = ({ currentUser, onDatabaseRestored }) => {
       )}
 
       {/* Edit User Modal */}
-      {editingUser && (
+      {isAdmin && editingUser && (
         <Modal
           isOpen={true}
           title={`Edit User: ${editingUser.displayName}`}
@@ -720,6 +790,20 @@ export const Settings = ({ currentUser, onDatabaseRestored }) => {
             </div>
           )}
           <form onSubmit={handleChangePassword}>
+            {!isAdmin && selectedUserForPassword?.id === currentUser?.id && (
+              <div className="form-group">
+                <label className="form-label">Current Password <span className="req">*</span></label>
+                <input
+                  type="password"
+                  className="form-input"
+                  value={passwordForm.currentPassword}
+                  onChange={(e) => setPasswordForm({ ...passwordForm, currentPassword: e.target.value })}
+                  placeholder="Enter current password"
+                  required
+                  autoFocus
+                />
+              </div>
+            )}
             <div className="form-group">
               <label className="form-label">New Password <span className="req">*</span></label>
               <input
@@ -729,7 +813,7 @@ export const Settings = ({ currentUser, onDatabaseRestored }) => {
                 onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
                 placeholder="Enter new password"
                 required
-                autoFocus
+                autoFocus={isAdmin}
               />
             </div>
             <div className="form-group">
@@ -749,3 +833,4 @@ export const Settings = ({ currentUser, onDatabaseRestored }) => {
     </div>
   )
 }
+
