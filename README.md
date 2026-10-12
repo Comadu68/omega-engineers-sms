@@ -205,24 +205,6 @@ The compiled installer will be generated in the `dist/` directory.
 
 ---
 
-## 👥 Academic Credits & Team Contributors
-
-This project is developed as part of **EER4189 Software Design in Group**.
-
-* **Client:** Mr. H.K.C. Karunathilaka — Owner, Omega Engineers Service Station (Niyamgamdora, Kothmale)
-* **Project Supervisor:** Ms. Kelani Bandara
-
-### Team CodeLab (Group 47)
-
-| Name | Student Reg. No. | Role & Contribution |
-| :--- | :---: | :--- |
-| **H.M.M.P. Herath** | `124700622` | **Project Coordinator & Scrum Master**<br>Client liaison, project timeline, sprint management, UI layout. |
-| **H.M.P.S.D.W. Herath** | `724701588` | **Business Analyst & Core Workflow Lead**<br>Requirement engineering, SRS modeling, Job Card & Customer flow. |
-| **W.M.P.R. Weerasinghe** | `624692044` | **Tech Lead & Backend Specialist**<br>System architecture, SQLite schema, PBKDF2 cryptography, IPC handlers. |
-| **H.K. Bhagya** | `224692505` | **QA Engineer & Documentation Lead**<br>System documentation, print stylesheets, report exports, testing verification. |
-
----
-
 ## 📄 License & Intellectual Property
 
 This project is developed solely for academic evaluation under the **EER4189 Software Design in Group** curriculum and for operational deployment at **Omega Engineers Service Station**. All rights reserved.
