@@ -12,10 +12,17 @@ contextBridge.exposeInMainWorld('omega', {
     isFirstRun: () => ipcRenderer.invoke('auth:isFirstRun'),
     setupAdmin: (payload) => ipcRenderer.invoke('auth:setupAdmin', payload),
     login: (credentials) => ipcRenderer.invoke('auth:login', credentials),
+    logout: () => ipcRenderer.invoke('auth:logout'),
     getUsers: () => ipcRenderer.invoke('auth:getUsers'),
     createUser: (payload) => ipcRenderer.invoke('auth:createUser', payload),
     updateUser: (id, data) => ipcRenderer.invoke('auth:updateUser', { id, data }),
-    changePassword: (id, newPassword) => ipcRenderer.invoke('auth:changePassword', { id, newPassword })
+    changePassword: (id, newPassword, currentPassword) =>
+      ipcRenderer.invoke(
+        'auth:changePassword',
+        typeof id === 'object' && id !== null
+          ? id
+          : { id, newPassword, currentPassword }
+      )
   },
   customers: {
     list: (filters) => ipcRenderer.invoke('customers:list', filters),

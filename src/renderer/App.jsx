@@ -38,12 +38,20 @@ export default function App() {
     checkInitialStatus()
   }, [])
 
-  const handleLogout = () => {
-    setCurrentUser(null)
-    setActiveTab('dashboard')
-    setSelectedJobId(null)
-    setSelectedInvoiceId(null)
-    setJobCardPrefill(null)
+  const handleLogout = async () => {
+    try {
+      if (window.omega?.auth?.logout) {
+        await window.omega.auth.logout()
+      }
+    } catch (err) {
+      console.error('Failed to logout:', err)
+    } finally {
+      setCurrentUser(null)
+      setActiveTab('dashboard')
+      setSelectedJobId(null)
+      setSelectedInvoiceId(null)
+      setJobCardPrefill(null)
+    }
   }
 
   const handleNavigate = (tabId, params = {}) => {

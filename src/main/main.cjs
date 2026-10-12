@@ -2,6 +2,7 @@ const { app, BrowserWindow, ipcMain } = require('electron')
 const path = require('path')
 const dbHelper = require('../database/db.cjs')
 const { registerAllIpc } = require('./ipc/index.cjs')
+const authIpc = require('./ipc/auth.ipc.cjs')
 const settingsService = require('./services/settingsService.cjs')
 const backupService = require('./services/backupService.cjs')
 
@@ -21,6 +22,18 @@ function createWindow() {
       nodeIntegration: false,
       sandbox: false
     }
+  })
+
+  const webContents = mainWindow.webContents
+  const webContentsId = webContents ? webContents.id : null
+  if (webContents && typeof webContents.once === 'function') {
+    webContents.once('destroyed', () => {
+      authIpc.clearSessionForWebContents(webContentsId ?? webContents)
+    })
+  }
+  mainWindow.on('closed', () => {
+    authIpc.clearSessionForWebContents(webContentsId ?? webContents)
+    mainWindow = null
   })
 
   mainWindow.removeMenu()
@@ -61,6 +74,7 @@ app.whenReady().then(() => {
 })
 
 app.on('window-all-closed', () => {
+  authIpc.clearAllSessions()
   try {
     const autoBackup = settingsService.get('auto_backup_on_exit')
     if (autoBackup === 'true' || autoBackup === true) {
@@ -74,3 +88,4 @@ app.on('window-all-closed', () => {
     app.quit()
   }
 })
+
