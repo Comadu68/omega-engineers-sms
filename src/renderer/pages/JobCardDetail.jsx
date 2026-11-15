@@ -1,4 +1,14 @@
 import React, { useEffect, useState } from 'react'
+import {
+  ArrowLeft,
+  ArrowRight,
+  Plus,
+  Trash2,
+  Phone,
+  AlertTriangle,
+  Package,
+  Layers
+} from 'lucide-react'
 import { Badge } from '../components/Badge'
 import { Modal } from '../components/Modal'
 
@@ -244,8 +254,14 @@ export const JobCardDetail = ({ jobId, onBack, onNavigateToInvoice, currentUser 
       {/* Top action header */}
       <div className="toolbar" style={{ marginBottom: '20px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-          <button type="button" className="btn btn-secondary btn-sm" onClick={onBack}>
-            ← Back to Job Cards
+          <button
+            type="button"
+            className="btn btn-secondary btn-sm"
+            onClick={onBack}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+          >
+            <ArrowLeft size={14} />
+            <span>Back to Job Cards</span>
           </button>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -279,8 +295,10 @@ export const JobCardDetail = ({ jobId, onBack, onNavigateToInvoice, currentUser 
               type="button"
               className="btn btn-success"
               onClick={() => onNavigateToInvoice(job.invoiceId)}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
             >
-              View Invoice ({job.invoiceNo}) →
+              <span>View Invoice ({job.invoiceNo})</span>
+              <ArrowRight size={14} />
             </button>
           ) : (
             <button
@@ -288,8 +306,10 @@ export const JobCardDetail = ({ jobId, onBack, onNavigateToInvoice, currentUser 
               className="btn btn-primary"
               onClick={() => setIsGenerateInvoiceOpen(true)}
               disabled={job.status === 'cancelled'}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
             >
-              Generate Bill &amp; Sticker →
+              <span>Generate Bill &amp; Sticker</span>
+              <ArrowRight size={14} />
             </button>
           )}
         </div>
@@ -307,8 +327,11 @@ export const JobCardDetail = ({ jobId, onBack, onNavigateToInvoice, currentUser 
             color: 'var(--danger-text)'
           }}
         >
-          <strong>⚠️ This Job Card was Cancelled.</strong>
-          {job.cancellationReason && <div>Reason: {job.cancellationReason}</div>}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <AlertTriangle size={18} />
+            <strong>This Job Card was Cancelled.</strong>
+          </div>
+          {job.cancellationReason && <div style={{ marginTop: '4px' }}>Reason: {job.cancellationReason}</div>}
           <div style={{ fontSize: '11px', marginTop: '4px', opacity: 0.85 }}>
             Cancelled at: {job.cancelledAt ? job.cancelledAt.replace('T', ' ').slice(0, 16) : '—'}
           </div>
@@ -326,7 +349,10 @@ export const JobCardDetail = ({ jobId, onBack, onNavigateToInvoice, currentUser 
             <div>
               <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>CUSTOMER</div>
               <div style={{ fontWeight: 700, fontSize: '14px', marginTop: '2px' }}>{job.customerName}</div>
-              <div style={{ color: 'var(--text-muted)', fontSize: '12px' }}>📞 {job.customerPhone}</div>
+              <div style={{ color: 'var(--text-muted)', fontSize: '12px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                <Phone size={12} />
+                <span>{job.customerPhone}</span>
+              </div>
               {job.customerAltPhone && <div style={{ color: 'var(--text-muted)', fontSize: '12px' }}>Alt: {job.customerAltPhone}</div>}
             </div>
 
@@ -378,11 +404,17 @@ export const JobCardDetail = ({ jobId, onBack, onNavigateToInvoice, currentUser 
             <div style={{ padding: '12px', background: 'var(--bg-main)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', fontSize: '12px' }}>
               <div style={{ fontWeight: 700, fontSize: '13px' }}>{job.mechanicName}</div>
               <div style={{ color: 'var(--primary)', fontWeight: 600 }}>{job.mechanicSpecialty}</div>
-              {job.mechanicPhone && <div style={{ color: 'var(--text-muted)', marginTop: '2px' }}>📞 {job.mechanicPhone}</div>}
+              {job.mechanicPhone && (
+                <div style={{ color: 'var(--text-muted)', marginTop: '2px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                  <Phone size={12} />
+                  <span>{job.mechanicPhone}</span>
+                </div>
+              )}
             </div>
           ) : (
-            <div style={{ padding: '12px', background: '#FEF6EC', borderRadius: 'var(--radius-md)', color: 'var(--warning-text)', fontSize: '12px' }}>
-              ⚠️ No mechanic assigned yet. Select from dropdown to assign.
+            <div style={{ padding: '12px', background: '#FEF6EC', borderRadius: 'var(--radius-md)', color: 'var(--warning-text)', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <AlertTriangle size={15} />
+              <span>No mechanic assigned yet. Select from dropdown to assign.</span>
             </div>
           )}
         </div>
@@ -406,8 +438,10 @@ export const JobCardDetail = ({ jobId, onBack, onNavigateToInvoice, currentUser 
               setIsAddTaskOpen(true)
             }}
             disabled={isJobLocked}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
           >
-            + Add Task
+            <Plus size={14} />
+            <span>Add Task</span>
           </button>
         </div>
 
@@ -465,11 +499,12 @@ export const JobCardDetail = ({ jobId, onBack, onNavigateToInvoice, currentUser 
                     <button
                       type="button"
                       className="btn btn-danger btn-sm"
-                      style={{ padding: '2px 6px', fontSize: '10px' }}
+                      style={{ padding: '3px 6px', fontSize: '10px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
                       onClick={() => handleDeleteTask(t.id)}
                       disabled={isJobLocked}
+                      title="Delete task"
                     >
-                      ✕
+                      <Trash2 size={12} />
                     </button>
                   </td>
                 </tr>
@@ -496,8 +531,10 @@ export const JobCardDetail = ({ jobId, onBack, onNavigateToInvoice, currentUser 
               setIsAddPartOpen(true)
             }}
             disabled={isJobLocked}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
           >
-            + Consume Part (FIFO)
+            <Plus size={14} />
+            <span>Consume Part (FIFO)</span>
           </button>
         </div>
 
@@ -791,7 +828,10 @@ export const JobCardDetail = ({ jobId, onBack, onNavigateToInvoice, currentUser 
               return (
                 <div style={{ marginTop: '14px', padding: '10px 14px', background: 'var(--bg-main)', borderRadius: '6px', border: '1px solid var(--border-color)', fontSize: '12px' }}>
                   <div style={{ fontWeight: 700, marginBottom: '6px', color: 'var(--text-main)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <span>📦 FIFO Batch Allocation Preview</span>
+                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                      <Package size={14} />
+                      <span>FIFO Batch Allocation Preview</span>
+                    </div>
                     {batchBreakdown.length > 1 && (
                       <span style={{ fontSize: '11px', color: 'var(--warning-text)', fontWeight: 600 }}>Multi-Batch Split ({batchBreakdown.length} batches)</span>
                     )}
@@ -799,9 +839,10 @@ export const JobCardDetail = ({ jobId, onBack, onNavigateToInvoice, currentUser 
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                     {batchBreakdown.map((b, idx) => (
                       <div key={b.batchNo || idx} style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0', borderBottom: idx < batchBreakdown.length - 1 ? '1px dashed var(--border-subtle)' : 'none' }}>
-                        <span>
-                          {idx === 0 ? '🟢 Oldest Batch' : '🔵 Next Batch'} <strong>#{b.batchNo}</strong>
-                          <span style={{ color: 'var(--text-muted)', marginLeft: '6px' }}>({b.remainingInBatch} in stock{canViewConfidential ? ` @ Rs. ${b.unitCost?.toLocaleString()}` : ''})</span>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                          <Layers size={13} style={{ color: idx === 0 ? 'var(--success)' : 'var(--primary)' }} />
+                          <span>{idx === 0 ? 'Oldest Batch' : 'Next Batch'} <strong>#{b.batchNo}</strong></span>
+                          <span style={{ color: 'var(--text-muted)' }}>({b.remainingInBatch} in stock{canViewConfidential ? ` @ Rs. ${b.unitCost?.toLocaleString()}` : ''})</span>
                         </span>
                         <span style={{ fontWeight: 700, color: 'var(--primary)' }}>
                           Deduct: {b.deductQty} unit{b.deductQty === 1 ? '' : 's'}
@@ -810,8 +851,9 @@ export const JobCardDetail = ({ jobId, onBack, onNavigateToInvoice, currentUser 
                     ))}
                   </div>
                   {remainingToDeduct > 0 && (
-                    <div style={{ marginTop: '6px', color: 'var(--danger-text)', fontWeight: 600, fontSize: '11px' }}>
-                      ⚠️ Shortfall: Insufficient stock (short by {remainingToDeduct} units).
+                    <div style={{ marginTop: '6px', color: 'var(--danger-text)', fontWeight: 600, fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <AlertTriangle size={13} />
+                      <span>Shortfall: Insufficient stock (short by {remainingToDeduct} units).</span>
                     </div>
                   )}
                 </div>
@@ -889,8 +931,10 @@ export const JobCardDetail = ({ jobId, onBack, onNavigateToInvoice, currentUser 
                 className="btn btn-primary"
                 onClick={handleGenerateInvoice}
                 disabled={isSubmitting}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
               >
-                {isSubmitting ? 'Generating...' : 'Generate Invoice & Service Sticker →'}
+                <span>{isSubmitting ? 'Generating...' : 'Generate Invoice & Service Sticker'}</span>
+                {!isSubmitting && <ArrowRight size={14} />}
               </button>
             </>
           }

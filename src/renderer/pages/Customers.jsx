@@ -1,4 +1,16 @@
 import React, { useEffect, useState } from 'react'
+import {
+  Search,
+  Plus,
+  ArrowRight,
+  Pencil,
+  AlertTriangle,
+  Phone,
+  Mail,
+  Car,
+  ClipboardList,
+  MapPin
+} from 'lucide-react'
 import { Modal } from '../components/Modal'
 import { Badge } from '../components/Badge'
 
@@ -246,7 +258,7 @@ export const Customers = ({ onNavigateToJob }) => {
       {/* Toolbar */}
       <div className="toolbar">
         <div className="search-input-wrap">
-          <span className="search-icon">🔍</span>
+          <span className="search-icon"><Search size={14} /></span>
           <input
             type="text"
             className="search-input"
@@ -258,13 +270,15 @@ export const Customers = ({ onNavigateToJob }) => {
         <button
           type="button"
           className="btn btn-primary"
+          style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
           onClick={() => {
             setFormError('')
             setCustomerForm({ fullName: '', phone: '', alternatePhone: '', email: '', address: '', notes: '' })
             setIsAddCustomerOpen(true)
           }}
         >
-          + Add New Customer
+          <Plus size={15} />
+          <span>Add New Customer</span>
         </button>
       </div>
 
@@ -323,9 +337,11 @@ export const Customers = ({ onNavigateToJob }) => {
                     <button
                       type="button"
                       className="btn btn-secondary btn-sm"
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}
                       onClick={() => openCustomerDetail(c.id)}
                     >
-                      View Profile →
+                      <span>View Profile</span>
+                      <ArrowRight size={13} />
                     </button>
                   </td>
                 </tr>
@@ -350,6 +366,7 @@ export const Customers = ({ onNavigateToJob }) => {
               <button
                 type="button"
                 className="btn btn-secondary"
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
                 onClick={() => {
                   setEditingCustomer(customerDetail)
                   setCustomerForm({
@@ -362,14 +379,17 @@ export const Customers = ({ onNavigateToJob }) => {
                   })
                 }}
               >
-                ✏️ Edit Contact Info
+                <Pencil size={13} />
+                <span>Edit Contact Info</span>
               </button>
               <button
                 type="button"
                 className="btn btn-primary"
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
                 onClick={() => setIsAddVehicleOpen(true)}
               >
-                + Register New Vehicle
+                <Plus size={15} />
+                <span>Register New Vehicle</span>
               </button>
             </div>
           }
@@ -630,7 +650,12 @@ export const Customers = ({ onNavigateToJob }) => {
         <Modal
           isOpen={true}
           size="lg"
-          title="⚠️ Phone Number Already Registered"
+          title={
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+              <AlertTriangle size={18} color="#D97706" />
+              <span>Phone Number Already Registered</span>
+            </span>
+          }
           onClose={() => setDuplicateDialog(null)}
           footer={
             <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', alignItems: 'center' }}>
@@ -685,7 +710,7 @@ export const Customers = ({ onNavigateToJob }) => {
               <strong>Notice:</strong> The primary phone number{' '}
               <strong>{duplicateDialog.phone}</strong> is already registered to existing customer record(s).
               <div style={{ marginTop: '4px', fontSize: '12px' }}>
-                • To avoid creating duplicate records, choose <strong>"👉 Use Existing Customer"</strong> below.
+                • To avoid creating duplicate records, choose <strong>"Use Existing Customer"</strong> below.
                 <br />
                 • If this is a valid shared number (e.g. family member or company fleet), click{' '}
                 <strong>"Create / Save Anyway (Shared Phone)"</strong>.
@@ -714,20 +739,40 @@ export const Customers = ({ onNavigateToJob }) => {
                     <div style={{ fontWeight: 700, fontSize: '14px', color: 'var(--text-main)' }}>
                       {dup.fullName}
                     </div>
-                    <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px' }}>
-                      📞 <strong>{dup.phone}</strong>
+                    <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                        <Phone size={12} />
+                        <strong>{dup.phone}</strong>
+                      </span>
                       {dup.alternatePhone && <span> • Alt: {dup.alternatePhone}</span>}
-                      {dup.email && <span> • ✉️ {dup.email}</span>}
+                      {dup.email && (
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                          • <Mail size={12} /> {dup.email}
+                        </span>
+                      )}
                     </div>
-                    <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px' }}>
-                      🚗 {dup.vehicleCount || 0} vehicle(s) registered • 📋 {dup.jobCount || 0} job(s)
-                      {dup.address && <span> • 📍 {dup.address}</span>}
+                    <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                        <Car size={12} />
+                        <span>{dup.vehicleCount || 0} vehicle(s) registered</span>
+                      </span>
+                      <span>•</span>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                        <ClipboardList size={12} />
+                        <span>{dup.jobCount || 0} job(s)</span>
+                      </span>
+                      {dup.address && (
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                          • <MapPin size={12} /> {dup.address}
+                        </span>
+                      )}
                     </div>
                   </div>
                   <div>
                     <button
                       type="button"
                       className="btn btn-primary btn-sm"
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}
                       onClick={() => {
                         setDuplicateDialog(null)
                         setIsAddCustomerOpen(false)
@@ -735,7 +780,8 @@ export const Customers = ({ onNavigateToJob }) => {
                         openCustomerDetail(dup.id)
                       }}
                     >
-                      👉 Use Existing Customer
+                      <span>Use Existing Customer</span>
+                      <ArrowRight size={13} />
                     </button>
                   </div>
                 </div>

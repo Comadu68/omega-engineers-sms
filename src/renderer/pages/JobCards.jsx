@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react'
+import { Search, Plus, ArrowRight, X } from 'lucide-react'
 import { Badge } from '../components/Badge'
 import { Modal } from '../components/Modal'
 import { JobCardDetail } from './JobCardDetail'
@@ -200,7 +201,9 @@ export const JobCards = ({ initialSelectedJobId = null, prefillData = null, onNa
       {/* Top Toolbar */}
       <div className="toolbar">
         <div className="search-input-wrap">
-          <span className="search-icon">🔍</span>
+          <span className="search-icon" style={{ display: 'inline-flex', alignItems: 'center' }}>
+            <Search size={14} />
+          </span>
           <input
             type="text"
             className="search-input"
@@ -209,8 +212,14 @@ export const JobCards = ({ initialSelectedJobId = null, prefillData = null, onNa
             placeholder="Search by Job ID, customer, vehicle no..."
           />
         </div>
-        <button type="button" className="btn btn-primary" onClick={openNewJobModal}>
-          + New Job Card
+        <button
+          type="button"
+          className="btn btn-primary"
+          onClick={openNewJobModal}
+          style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+        >
+          <Plus size={15} />
+          <span>New Job Card</span>
         </button>
       </div>
 
@@ -309,9 +318,11 @@ export const JobCards = ({ initialSelectedJobId = null, prefillData = null, onNa
                     <button
                       type="button"
                       className="btn btn-secondary btn-sm"
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}
                       onClick={() => setSelectedJobId(j.id)}
                     >
-                      View Details →
+                      <span>View Details</span>
+                      <ArrowRight size={13} />
                     </button>
                   </td>
                 </tr>
@@ -380,7 +391,12 @@ export const JobCards = ({ initialSelectedJobId = null, prefillData = null, onNa
                 onClick={handleCreateJobCard}
                 disabled={isSubmitting}
               >
-                {isSubmitting ? 'Opening Job...' : 'Open Job Card →'}
+                {isSubmitting ? 'Opening Job...' : (
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                    <span>Open Job Card</span>
+                    <ArrowRight size={14} />
+                  </span>
+                )}
               </button>
             </>
           }
@@ -480,9 +496,11 @@ export const JobCards = ({ initialSelectedJobId = null, prefillData = null, onNa
                 <button
                   type="button"
                   className="btn btn-secondary btn-sm"
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}
                   onClick={handleAddTaskRow}
                 >
-                  + Add Row
+                  <Plus size={13} />
+                  <span>Add Row</span>
                 </button>
               </div>
 
@@ -510,10 +528,11 @@ export const JobCards = ({ initialSelectedJobId = null, prefillData = null, onNa
                     <button
                       type="button"
                       className="btn btn-danger btn-sm"
-                      style={{ padding: '0 8px' }}
+                      style={{ padding: '0 8px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
                       onClick={() => handleRemoveTaskRow(idx)}
+                      title="Remove task"
                     >
-                      ✕
+                      <X size={13} />
                     </button>
                   )}
                 </div>

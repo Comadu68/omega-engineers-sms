@@ -1,4 +1,15 @@
 import React, { useEffect, useState } from 'react'
+import {
+  Plus,
+  ChevronLeft,
+  ChevronRight,
+  Calendar,
+  Clock,
+  Search,
+  ArrowRight,
+  AlertTriangle,
+  CheckCircle2
+} from 'lucide-react'
 import { Modal } from '../components/Modal'
 import { Badge } from '../components/Badge'
 
@@ -256,8 +267,14 @@ export const Appointments = ({ onOpenJobCardWithDetails, currentUser = null }) =
           <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 800 }}>Service Appointments &amp; Bookings</h2>
         </div>
         {!isMechanic && (
-          <button type="button" className="btn btn-primary" onClick={openNewAppointmentModal}>
-            + New Appointment Booking
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={openNewAppointmentModal}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+          >
+            <Plus size={15} />
+            <span>New Appointment Booking</span>
           </button>
         )}
       </div>
@@ -271,9 +288,9 @@ export const Appointments = ({ onOpenJobCardWithDetails, currentUser = null }) =
               type="button"
               className="btn btn-secondary btn-sm"
               onClick={handlePrevMonth}
-              style={{ width: '32px', height: '32px', padding: 0 }}
+              style={{ width: '32px', height: '32px', padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
             >
-              ‹
+              <ChevronLeft size={16} />
             </button>
             <span style={{ fontWeight: 800, fontSize: '14px', letterSpacing: '0.5px' }}>
               {monthName} {currentYear}
@@ -282,9 +299,9 @@ export const Appointments = ({ onOpenJobCardWithDetails, currentUser = null }) =
               type="button"
               className="btn btn-secondary btn-sm"
               onClick={handleNextMonth}
-              style={{ width: '32px', height: '32px', padding: 0 }}
+              style={{ width: '32px', height: '32px', padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
             >
-              ›
+              <ChevronRight size={16} />
             </button>
           </div>
 
@@ -315,23 +332,23 @@ export const Appointments = ({ onOpenJobCardWithDetails, currentUser = null }) =
               let stateClass = 'state-free'
               let stateText = 'Free'
               let progressClass = ''
-              let tooltip = `📅 ${dayStr} • 0/${maxCapacity} booked • All ${maxCapacity} slots free`
+              let tooltip = `${dayStr} • 0/${maxCapacity} booked • All ${maxCapacity} slots free`
 
               if (bookedCount >= maxCapacity || dayInfo?.status === 'full') {
                 stateClass = 'state-full'
                 stateText = 'Full'
                 progressClass = 'progress-full'
-                tooltip = `📅 ${dayStr} • ${bookedCount}/${maxCapacity} booked • Full capacity (0 slots left)`
+                tooltip = `${dayStr} • ${bookedCount}/${maxCapacity} booked • Full capacity (0 slots left)`
               } else if (bookedCount >= Math.ceil(maxCapacity / 2) || dayInfo?.status === 'limited') {
                 stateClass = 'state-limited'
                 stateText = `${availableSlots} left`
                 progressClass = 'progress-limited'
-                tooltip = `📅 ${dayStr} • ${bookedCount}/${maxCapacity} booked • ${availableSlots} slot${availableSlots === 1 ? '' : 's'} left`
+                tooltip = `${dayStr} • ${bookedCount}/${maxCapacity} booked • ${availableSlots} slot${availableSlots === 1 ? '' : 's'} left`
               } else if (bookedCount > 0) {
                 stateClass = 'state-available'
                 stateText = `${availableSlots} left`
                 progressClass = 'progress-available'
-                tooltip = `📅 ${dayStr} • ${bookedCount}/${maxCapacity} booked • ${availableSlots} slot${availableSlots === 1 ? '' : 's'} left`
+                tooltip = `${dayStr} • ${bookedCount}/${maxCapacity} booked • ${availableSlots} slot${availableSlots === 1 ? '' : 's'} left`
               }
 
               return (
@@ -404,8 +421,9 @@ export const Appointments = ({ onOpenJobCardWithDetails, currentUser = null }) =
             <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>
               Selected Date Availability
             </div>
-            <div style={{ fontWeight: 800, fontSize: '14px', marginTop: '2px', color: 'var(--text-main)' }}>
-              📅 {selectedDate}
+            <div style={{ fontWeight: 800, fontSize: '14px', marginTop: '2px', color: 'var(--text-main)', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+              <Calendar size={14} />
+              <span>{selectedDate}</span>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '8px', fontSize: '12px' }}>
               <span>Booked: <strong>{selectedDateAvail.bookedCount} / {selectedDateAvail.maxCapacity}</strong></span>
@@ -466,7 +484,9 @@ export const Appointments = ({ onOpenJobCardWithDetails, currentUser = null }) =
             </div>
 
             <div className="search-input-wrap" style={{ maxWidth: '240px' }}>
-              <span className="search-icon">🔍</span>
+              <span className="search-icon" style={{ display: 'inline-flex', alignItems: 'center' }}>
+                <Search size={14} />
+              </span>
               <input
                 type="text"
                 className="search-input"
@@ -503,7 +523,10 @@ export const Appointments = ({ onOpenJobCardWithDetails, currentUser = null }) =
                   {appointmentsList.map((a) => (
                     <tr key={a.id}>
                       <td>
-                        <div style={{ fontWeight: 800, color: 'var(--primary)' }}>⏰ {a.startTime}</div>
+                        <div style={{ fontWeight: 800, color: 'var(--primary)', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                          <Clock size={13} />
+                          <span>{a.startTime}</span>
+                        </div>
                         <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{a.appointmentDate}</div>
                       </td>
                       <td>
@@ -531,8 +554,10 @@ export const Appointments = ({ onOpenJobCardWithDetails, currentUser = null }) =
                                   appointmentId: a.id,
                                   complaint: a.serviceReason
                                 })}
+                                style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}
                               >
-                                Open Job →
+                                <span>Open Job</span>
+                                <ArrowRight size={13} />
                               </button>
                               <button
                                 type="button"
@@ -604,14 +629,16 @@ export const Appointments = ({ onOpenJobCardWithDetails, currentUser = null }) =
           )}
 
           {slotCheckResult && !slotCheckResult.available && (
-            <div style={{ background: 'var(--danger-bg)', color: 'var(--danger-text)', padding: '10px', borderRadius: '6px', fontSize: '12px', marginBottom: '14px', border: '1px solid rgba(227,87,87,0.3)' }}>
-              ⚠️ {slotCheckResult.reason}
+            <div style={{ background: 'var(--danger-bg)', color: 'var(--danger-text)', padding: '10px', borderRadius: '6px', fontSize: '12px', marginBottom: '14px', border: '1px solid rgba(227,87,87,0.3)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <AlertTriangle size={16} />
+              <span>{slotCheckResult.reason}</span>
             </div>
           )}
 
           {slotCheckResult && slotCheckResult.available && (
-            <div style={{ background: 'var(--success-bg)', color: 'var(--success-text)', padding: '8px 12px', borderRadius: '6px', fontSize: '12px', marginBottom: '14px', border: '1px solid rgba(47,177,113,0.3)' }}>
-              ✓ Time slot is available. ({slotCheckResult.availableSlots} of {slotCheckResult.maxCapacity} slots free today)
+            <div style={{ background: 'var(--success-bg)', color: 'var(--success-text)', padding: '8px 12px', borderRadius: '6px', fontSize: '12px', marginBottom: '14px', border: '1px solid rgba(47,177,113,0.3)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <CheckCircle2 size={16} />
+              <span>Time slot is available. ({slotCheckResult.availableSlots} of {slotCheckResult.maxCapacity} slots free today)</span>
             </div>
           )}
 

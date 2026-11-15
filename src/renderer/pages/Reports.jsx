@@ -1,4 +1,13 @@
 import React, { useEffect, useState } from 'react'
+import {
+  BarChart3,
+  ClipboardList,
+  Receipt,
+  Package,
+  Wrench,
+  Plus,
+  X
+} from 'lucide-react'
 import { Badge } from '../components/Badge'
 import { Modal } from '../components/Modal'
 
@@ -220,37 +229,47 @@ export const Reports = () => {
           <button
             type="button"
             className={`chip ${activeTab === 'daily' ? 'active' : ''}`}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
             onClick={() => setActiveTab('daily')}
           >
-            📊 Daily Financial Summary
+            <BarChart3 size={14} />
+            <span>Daily Financial Summary</span>
           </button>
           <button
             type="button"
             className={`chip ${activeTab === 'jobs' ? 'active' : ''}`}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
             onClick={() => setActiveTab('jobs')}
           >
-            📋 Job Cards Report
+            <ClipboardList size={14} />
+            <span>Job Cards Report</span>
           </button>
           <button
             type="button"
             className={`chip ${activeTab === 'sales' ? 'active' : ''}`}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
             onClick={() => setActiveTab('sales')}
           >
-            💳 Sales &amp; Revenue
+            <Receipt size={14} />
+            <span>Sales &amp; Revenue</span>
           </button>
           <button
             type="button"
             className={`chip ${activeTab === 'inventory' ? 'active' : ''}`}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
             onClick={() => setActiveTab('inventory')}
           >
-            📦 Inventory Valuation
+            <Package size={14} />
+            <span>Inventory Valuation</span>
           </button>
           <button
             type="button"
             className={`chip ${activeTab === 'mechanics' ? 'active' : ''}`}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
             onClick={() => setActiveTab('mechanics')}
           >
-            🔧 Mechanic Performance
+            <Wrench size={14} />
+            <span>Mechanic Performance</span>
           </button>
         </div>
 
@@ -502,9 +521,11 @@ export const Reports = () => {
                     <button
                       type="button"
                       className="btn btn-primary btn-sm"
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}
                       onClick={() => setIsExpenseModalOpen(true)}
                     >
-                      + Record Expense
+                      <Plus size={13} />
+                      <span>Record Expense</span>
                     </button>
                   </div>
                   {dailyData.dailyExpenses?.length === 0 ? (
@@ -533,10 +554,11 @@ export const Reports = () => {
                               <button
                                 type="button"
                                 className="btn btn-danger btn-sm"
-                                style={{ padding: '2px 6px', fontSize: '10px' }}
+                                style={{ padding: '2px 6px', fontSize: '10px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
+                                title="Delete expense"
                                 onClick={() => handleDeleteExpense(exp.id)}
                               >
-                                ✕
+                                <X size={12} />
                               </button>
                             </td>
                           </tr>

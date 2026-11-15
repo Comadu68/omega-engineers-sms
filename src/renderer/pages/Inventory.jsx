@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react'
+import { Search, AlertTriangle, Plus, ArrowRight, Pencil } from 'lucide-react'
 import { Modal } from '../components/Modal'
 import { Badge } from '../components/Badge'
 
@@ -340,7 +341,7 @@ export const Inventory = ({ prefillReceiveItem = null }) => {
       <div className="toolbar">
         <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flex: 1, flexWrap: 'wrap' }}>
           <div className="search-input-wrap">
-            <span className="search-icon">🔍</span>
+            <span className="search-icon"><Search size={14} /></span>
             <input
               type="text"
               className="search-input"
@@ -365,9 +366,11 @@ export const Inventory = ({ prefillReceiveItem = null }) => {
           <button
             type="button"
             className={`chip ${lowStockOnly ? 'active' : ''}`}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}
             onClick={() => setLowStockOnly(!lowStockOnly)}
           >
-            ⚠️ Low Stock Only
+            <AlertTriangle size={14} />
+            <span>Low Stock Only</span>
           </button>
         </div>
 
@@ -375,6 +378,7 @@ export const Inventory = ({ prefillReceiveItem = null }) => {
           <button
             type="button"
             className="btn btn-secondary"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}
             onClick={() => {
               if (items.length > 0) {
                 openReceiveBatchFor(items[0])
@@ -383,11 +387,13 @@ export const Inventory = ({ prefillReceiveItem = null }) => {
               }
             }}
           >
-            + Receive Stock Batch
+            <Plus size={14} />
+            <span>Receive Stock Batch</span>
           </button>
           <button
             type="button"
             className="btn btn-primary"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}
             onClick={() => {
               setFormError('')
               setItemForm({
@@ -404,7 +410,8 @@ export const Inventory = ({ prefillReceiveItem = null }) => {
               setIsAddItemOpen(true)
             }}
           >
-            + Add New Item
+            <Plus size={15} />
+            <span>Add New Item</span>
           </button>
         </div>
       </div>
@@ -477,16 +484,20 @@ export const Inventory = ({ prefillReceiveItem = null }) => {
                       <button
                         type="button"
                         className="btn btn-secondary btn-sm"
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}
                         onClick={() => openItemDetail(item.id)}
                       >
-                        Batches ({item.activeBatchesCount}) →
+                        <span>Batches ({item.activeBatchesCount})</span>
+                        <ArrowRight size={13} />
                       </button>
                       <button
                         type="button"
                         className="btn btn-primary btn-sm"
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}
                         onClick={() => openReceiveBatchFor(item)}
                       >
-                        + Receive
+                        <Plus size={13} />
+                        <span>Receive</span>
                       </button>
                     </div>
                   </td>
@@ -509,6 +520,7 @@ export const Inventory = ({ prefillReceiveItem = null }) => {
               <button
                 type="button"
                 className="btn btn-secondary"
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}
                 onClick={() => {
                   setEditingItem(selectedItemDetail)
                   setItemForm({
@@ -522,14 +534,17 @@ export const Inventory = ({ prefillReceiveItem = null }) => {
                   })
                 }}
               >
-                ✏️ Edit Item Master
+                <Pencil size={13} />
+                <span>Edit Item Master</span>
               </button>
               <button
                 type="button"
                 className="btn btn-primary"
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}
                 onClick={() => openReceiveBatchFor(selectedItemDetail)}
               >
-                + Receive New Batch for this Item
+                <Plus size={14} />
+                <span>Receive New Batch for this Item</span>
               </button>
             </div>
           }
