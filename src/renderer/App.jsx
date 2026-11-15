@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react'
+import { canAccessModule, getDefaultTabForRole } from './utils/permissions'
 import { Sidebar } from './components/Sidebar'
 import { Topbar } from './components/Topbar'
 import { FirstRunSetup } from './pages/FirstRunSetup'
@@ -38,6 +39,15 @@ export default function App() {
     checkInitialStatus()
   }, [])
 
+  const userRole = currentUser?.role || ''
+
+  // Fallback if current activeTab is unauthorized for the logged-in user
+  useEffect(() => {
+    if (currentUser && !canAccessModule(currentUser.role, activeTab)) {
+      setActiveTab(getDefaultTabForRole(currentUser.role))
+    }
+  }, [currentUser, activeTab])
+
   const handleLogout = async () => {
     try {
       if (window.omega?.auth?.logout) {
@@ -55,6 +65,9 @@ export default function App() {
   }
 
   const handleNavigate = (tabId, params = {}) => {
+    if (currentUser && !canAccessModule(currentUser.role, tabId)) {
+      return
+    }
     setActiveTab(tabId)
     if (params.selectedJobId) {
       setSelectedJobId(params.selectedJobId)
@@ -68,6 +81,9 @@ export default function App() {
   }
 
   const handleOpenJobWithPrefill = (prefill) => {
+    if (currentUser && !canAccessModule(currentUser.role, 'jobcards')) {
+      return
+    }
     setJobCardPrefill(prefill)
     setSelectedJobId(null)
     setActiveTab('jobcards')
@@ -75,6 +91,7 @@ export default function App() {
 
   const handleQuickAction = (actionType) => {
     if (actionType === 'new_job') {
+      if (!canAccessModule(userRole, 'jobcards')) return
       setSelectedJobId(null)
       setJobCardPrefill({
         customerId: '',
@@ -83,6 +100,7 @@ export default function App() {
       })
       setActiveTab('jobcards')
     } else if (actionType === 'new_appointment') {
+      if (!canAccessModule(userRole, 'appointments')) return
       setActiveTab('appointments')
     }
   }
@@ -102,6 +120,7 @@ export default function App() {
         onSetupComplete={(user) => {
           setIsFirstRun(false)
           setCurrentUser(user)
+          setActiveTab(getDefaultTabForRole(user?.role))
         }}
       />
     )
@@ -113,6 +132,7 @@ export default function App() {
       <Login
         onLoginSuccess={(user) => {
           setCurrentUser(user)
+          setActiveTab(getDefaultTabForRole(user?.role))
         }}
       />
     )
@@ -167,75 +187,94 @@ export default function App() {
           title={getScreenTitle()}
           subtitle={getScreenSubtitle()}
           onQuickAction={handleQuickAction}
+          currentUser={currentUser}
         />
 
-        {activeTab === 'dashboard' && (
-          <Dashboard
-            onNavigate={handleNavigate}
-            onOpenNewJob={handleOpenJobWithPrefill}
-            onOpenNewAppointment={() => setActiveTab('appointments')}
-          />
-        )}
+        {!canAccessModule(userRole, activeTab) ? (
+          <div style={{ textAlign: 'center', padding: '80px', color: 'var(--text-muted)' }}>
+            <h2 style={{ fontSize: '22px', fontWeight: 700, marginBottom: '8px', color: 'var(--text-main)' }}>Access Restricted</h2>
+            <p style={{ fontSize: '14px', maxWidth: '480px', margin: '0 auto' }}>
+              Your user role (<strong>{userRole ? userRole.replace(/_/g, ' ') : 'Guest'}</strong>) does not have permission to view the <strong>{getScreenTitle()}</strong> module.
+            </p>
+          </div>
+        ) : (
+          <>
+            {activeTab === 'dashboard' && (
+              <Dashboard
+                onNavigate={handleNavigate}
+                onOpenNewJob={handleOpenJobWithPrefill}
+                onOpenNewAppointment={() => {
+                  if (canAccessModule(userRole, 'appointments')) {
+                    setActiveTab('appointments')
+                  }
+                }}
+                currentUser={currentUser}
+              />
+            )}
 
-        {activeTab === 'jobcards' && (
-          <JobCards
-            initialSelectedJobId={selectedJobId}
-            prefillData={jobCardPrefill}
-            onNavigateToInvoice={(invId) => {
-              setSelectedInvoiceId(invId)
-              setActiveTab('invoices')
-            }}
-          />
-        )}
+            {activeTab === 'jobcards' && (
+              <JobCards
+                initialSelectedJobId={selectedJobId}
+                prefillData={jobCardPrefill}
+                onNavigateToInvoice={(invId) => {
+                  if (canAccessModule(userRole, 'invoices')) {
+                    setSelectedInvoiceId(invId)
+                    setActiveTab('invoices')
+                  }
+                }}
+              />
+            )}
 
-        {activeTab === 'appointments' && (
-          <Appointments
-            onOpenJobCardWithDetails={handleOpenJobWithPrefill}
-          />
-        )}
+            {activeTab === 'appointments' && (
+              <Appointments
+                onOpenJobCardWithDetails={handleOpenJobWithPrefill}
+              />
+            )}
 
-        {activeTab === 'inventory' && (
-          <Inventory
-            prefillReceiveItem={inventoryPrefillReceive}
-          />
-        )}
+            {activeTab === 'inventory' && (
+              <Inventory
+                prefillReceiveItem={inventoryPrefillReceive}
+              />
+            )}
 
-        {activeTab === 'mechanics' && (
-          <Mechanics
-            onNavigateToJob={(jId) => {
-              setSelectedJobId(jId)
-              setActiveTab('jobcards')
-            }}
-          />
-        )}
+            {activeTab === 'mechanics' && (
+              <Mechanics
+                onNavigateToJob={(jId) => {
+                  setSelectedJobId(jId)
+                  setActiveTab('jobcards')
+                }}
+              />
+            )}
 
-        {activeTab === 'customers' && (
-          <Customers
-            onNavigateToJob={(jId) => {
-              setSelectedJobId(jId)
-              setActiveTab('jobcards')
-            }}
-          />
-        )}
+            {activeTab === 'customers' && (
+              <Customers
+                onNavigateToJob={(jId) => {
+                  setSelectedJobId(jId)
+                  setActiveTab('jobcards')
+                }}
+              />
+            )}
 
-        {activeTab === 'invoices' && (
-          <Invoices
-            initialSelectedInvoiceId={selectedInvoiceId}
-          />
-        )}
+            {activeTab === 'invoices' && (
+              <Invoices
+                initialSelectedInvoiceId={selectedInvoiceId}
+              />
+            )}
 
-        {activeTab === 'reports' && (
-          <Reports />
-        )}
+            {activeTab === 'reports' && (
+              <Reports />
+            )}
 
-        {activeTab === 'settings' && (
-          <Settings
-            currentUser={currentUser}
-            onDatabaseRestored={() => {
-              checkInitialStatus()
-              setActiveTab('dashboard')
-            }}
-          />
+            {activeTab === 'settings' && (
+              <Settings
+                currentUser={currentUser}
+                onDatabaseRestored={() => {
+                  checkInitialStatus()
+                  setActiveTab('dashboard')
+                }}
+              />
+            )}
+          </>
         )}
       </main>
     </div>

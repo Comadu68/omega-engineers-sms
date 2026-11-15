@@ -1,5 +1,18 @@
 const crypto = require('crypto')
 const dbHelper = require('../../database/db.cjs')
+const permissions = require('../../shared/permissions.cjs')
+
+let currentSessionUser = null
+
+const getCurrentUser = () => currentSessionUser
+
+const setCurrentUser = (user) => {
+  currentSessionUser = user
+}
+
+const logout = () => {
+  currentSessionUser = null
+}
 
 const ALLOWED_ROLES = Object.freeze([
   'admin_owner',
@@ -72,12 +85,43 @@ const getAuthenticatedCaller = (callerContext) => {
   }
 }
 
-const requireAdminCaller = (callerContext) => {
-  const caller = getAuthenticatedCaller(callerContext)
-  if (caller.role !== 'admin_owner') {
-    throw new Error('Access denied: Administrator privileges are required.')
+const requireAdminCaller = (callerContext = null) => {
+  if (callerContext) {
+    const caller = getAuthenticatedCaller(callerContext)
+    if (caller.role !== 'admin_owner') {
+      throw new Error('Access denied: Administrator privileges are required.')
+    }
+    return caller
   }
-  return caller
+  const user = currentSessionUser
+  if (!user || !user.role) {
+    throw new Error('Access denied: Authentication required.')
+  }
+  if (user.role !== 'admin_owner') {
+    throw new Error(`Access denied: Administrator role required (current: ${user.role}).`)
+  }
+  return user
+}
+
+const requireRole = (allowedRoles = [], callerContext = null) => {
+  let user = currentSessionUser
+  if (callerContext) {
+    try {
+      user = getAuthenticatedCaller(callerContext)
+    } catch (_) {
+      // fallback to currentSessionUser
+    }
+  }
+  if (!user || !user.role) {
+    throw new Error('Access denied: Authentication required.')
+  }
+  if (user.role === 'admin_owner') {
+    return user
+  }
+  if (!allowedRoles.includes(user.role)) {
+    throw new Error(`Access denied: Unauthorized role (${user.role}). Required: ${allowedRoles.join(', ')}`)
+  }
+  return user
 }
 
 const isFirstRun = () => {
@@ -126,13 +170,15 @@ const setupAdmin = (payload = {}) => {
       [newUserId, String(newUserId), JSON.stringify({ username: cleanUsername, role: 'admin_owner' })]
     )
 
-    return {
+    const adminUser = {
       id: newUserId,
       username: cleanUsername,
       displayName: cleanDisplayName,
       role: 'admin_owner',
       isActive: 1
     }
+    currentSessionUser = adminUser
+    return adminUser
   })
 }
 
@@ -167,13 +213,15 @@ const login = (credentials = {}) => {
     [user.id, String(user.id), JSON.stringify({ username: user.username, role: user.role })]
   )
 
-  return {
+  const sessionUser = {
     id: user.id,
     username: user.username,
     displayName: user.display_name,
     role: user.role,
     isActive: user.is_active
   }
+  currentSessionUser = sessionUser
+  return sessionUser
 }
 
 const recordLogoutAudit = (userId) => {
@@ -423,9 +471,16 @@ module.exports = {
   isFirstRun,
   setupAdmin,
   login,
+  logout,
+  getCurrentUser,
+  setCurrentUser,
   recordLogoutAudit,
   getAuthenticatedCaller,
   requireAdminCaller,
+  requireRole,
+  MODULE_PERMISSIONS: permissions.MODULE_PERMISSIONS,
+  canAccessModule: permissions.canAccessModule,
+  getDefaultTabForRole: permissions.getDefaultTabForRole,
   getUsers,
   createUser,
   updateUser,

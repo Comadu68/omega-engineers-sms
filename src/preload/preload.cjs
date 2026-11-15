@@ -13,6 +13,7 @@ contextBridge.exposeInMainWorld('omega', {
     setupAdmin: (payload) => ipcRenderer.invoke('auth:setupAdmin', payload),
     login: (credentials) => ipcRenderer.invoke('auth:login', credentials),
     logout: () => ipcRenderer.invoke('auth:logout'),
+    getCurrentUser: () => ipcRenderer.invoke('auth:getCurrentUser'),
     getUsers: () => ipcRenderer.invoke('auth:getUsers'),
     createUser: (payload) => ipcRenderer.invoke('auth:createUser', payload),
     updateUser: (id, data) => ipcRenderer.invoke('auth:updateUser', { id, data }),
