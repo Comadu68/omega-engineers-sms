@@ -3,7 +3,7 @@ import { Badge } from '../components/Badge'
 import { Modal } from '../components/Modal'
 import { JobCardDetail } from './JobCardDetail'
 
-export const JobCards = ({ initialSelectedJobId = null, prefillData = null, onNavigateToInvoice }) => {
+export const JobCards = ({ initialSelectedJobId = null, prefillData = null, onNavigateToInvoice, currentUser = null }) => {
   const [selectedJobId, setSelectedJobId] = useState(initialSelectedJobId)
   const [jobCards, setJobCards] = useState([])
   const [mechanics, setMechanics] = useState([])
@@ -190,6 +190,7 @@ export const JobCards = ({ initialSelectedJobId = null, prefillData = null, onNa
         jobId={selectedJobId}
         onBack={() => setSelectedJobId(null)}
         onNavigateToInvoice={onNavigateToInvoice}
+        currentUser={currentUser}
       />
     )
   }

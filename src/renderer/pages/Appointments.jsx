@@ -25,7 +25,7 @@ const SERVICE_TYPES = [
   'General Inspection / Other'
 ]
 
-export const Appointments = ({ onOpenJobCardWithDetails }) => {
+export const Appointments = ({ onOpenJobCardWithDetails, currentUser = null }) => {
   const todayDate = new Date()
   const [currentYear, setCurrentYear] = useState(todayDate.getFullYear())
   const [currentMonth, setCurrentMonth] = useState(todayDate.getMonth() + 1)
@@ -33,9 +33,18 @@ export const Appointments = ({ onOpenJobCardWithDetails }) => {
   
   const [monthAvailability, setMonthAvailability] = useState({ dates: {}, maxCapacity: 8 })
   const [appointmentsList, setAppointmentsList] = useState([])
-  const [activeFilter, setActiveFilter] = useState('date') // 'date', 'today', 'week', 'upcoming', 'cancelled'
+  const [activeFilter, setActiveFilter] = useState('date') // 'date', 'today', 'week', 'upcoming', 'cancelled', 'no_show'
   const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(true)
+  const [activeUser, setActiveUser] = useState(currentUser)
+
+  useEffect(() => {
+    if (!activeUser && window.omega?.auth?.getCurrentUser) {
+      window.omega.auth.getCurrentUser().then(setActiveUser).catch(() => {})
+    }
+  }, [activeUser])
+
+  const isMechanic = activeUser?.role === 'mechanic'
 
   // New Appointment Modal
   const [isModalOpen, setIsModalOpen] = useState(false)
@@ -82,6 +91,8 @@ export const Appointments = ({ onOpenJobCardWithDetails }) => {
         filters.status = 'scheduled'
       } else if (activeFilter === 'cancelled') {
         filters.status = 'cancelled'
+      } else if (activeFilter === 'no_show') {
+        filters.status = 'no_show'
       }
 
       const list = await window.omega.appointments.list(filters)
@@ -161,11 +172,12 @@ export const Appointments = ({ onOpenJobCardWithDetails }) => {
     }
   }
 
-  const checkSlotRealtime = async (date, time) => {
+  const checkSlotRealtime = async (date, time, vehicleId = null) => {
     try {
       const check = await window.omega.appointments.checkAvailability({
         appointmentDate: date,
-        startTime: time
+        startTime: time,
+        vehicleId: vehicleId || formData.vehicleId || null
       })
       setSlotCheckResult(check)
     } catch (_) {}
@@ -173,9 +185,9 @@ export const Appointments = ({ onOpenJobCardWithDetails }) => {
 
   useEffect(() => {
     if (isModalOpen && formData.appointmentDate && formData.startTime) {
-      checkSlotRealtime(formData.appointmentDate, formData.startTime)
+      checkSlotRealtime(formData.appointmentDate, formData.startTime, formData.vehicleId)
     }
-  }, [formData.appointmentDate, formData.startTime, isModalOpen])
+  }, [formData.appointmentDate, formData.startTime, formData.vehicleId, isModalOpen])
 
   const handleCreateAppointment = async (e) => {
     e.preventDefault()
@@ -211,6 +223,18 @@ export const Appointments = ({ onOpenJobCardWithDetails }) => {
     }
   }
 
+  const handleNoShowAppointment = async (id) => {
+    if (window.confirm('Mark this appointment as No-Show? This frees up the time slot capacity for other customers.')) {
+      try {
+        await window.omega.appointments.updateStatus(id, 'no_show')
+        loadCalendarAvailability()
+        loadAppointments()
+      } catch (err) {
+        alert(err.message || 'Failed to mark appointment as no-show.')
+      }
+    }
+  }
+
   // Calendar rendering math
   const daysInMonth = new Date(currentYear, currentMonth, 0).getDate()
   const firstDayIndex = new Date(currentYear, currentMonth - 1, 1).getDay()
@@ -231,9 +255,11 @@ export const Appointments = ({ onOpenJobCardWithDetails }) => {
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 800 }}>Service Appointments &amp; Bookings</h2>
         </div>
-        <button type="button" className="btn btn-primary" onClick={openNewAppointmentModal}>
-          + New Appointment Booking
-        </button>
+        {!isMechanic && (
+          <button type="button" className="btn btn-primary" onClick={openNewAppointmentModal}>
+            + New Appointment Booking
+          </button>
+        )}
       </div>
 
       {/* Two Column Layout: Left Month Calendar, Right Schedule */}
@@ -430,6 +456,13 @@ export const Appointments = ({ onOpenJobCardWithDetails }) => {
               >
                 Cancelled
               </button>
+              <button
+                type="button"
+                className={`chip ${activeFilter === 'no_show' ? 'active' : ''}`}
+                onClick={() => setActiveFilter('no_show')}
+              >
+                No-Show
+              </button>
             </div>
 
             <div className="search-input-wrap" style={{ maxWidth: '240px' }}>
@@ -487,7 +520,7 @@ export const Appointments = ({ onOpenJobCardWithDetails }) => {
                       <td><Badge status={a.status} /></td>
                       <td>
                         <div style={{ display: 'flex', gap: '6px' }}>
-                          {a.status === 'scheduled' && (
+                          {!isMechanic && a.status === 'scheduled' && (
                             <>
                               <button
                                 type="button"
@@ -503,6 +536,14 @@ export const Appointments = ({ onOpenJobCardWithDetails }) => {
                               </button>
                               <button
                                 type="button"
+                                className="btn btn-secondary btn-sm"
+                                onClick={() => handleNoShowAppointment(a.id)}
+                                title="Mark customer as No-Show"
+                              >
+                                No-Show
+                              </button>
+                              <button
+                                type="button"
                                 className="btn btn-danger btn-sm"
                                 onClick={() => handleCancelAppointment(a.id)}
                               >
@@ -514,6 +555,9 @@ export const Appointments = ({ onOpenJobCardWithDetails }) => {
                             <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--primary)' }}>
                               Job: {a.linkedJobNo}
                             </span>
+                          )}
+                          {isMechanic && a.status === 'scheduled' && (
+                            <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Scheduled</span>
                           )}
                         </div>
                       </td>
@@ -629,6 +673,7 @@ export const Appointments = ({ onOpenJobCardWithDetails }) => {
                 <input
                   type="date"
                   className="form-input"
+                  min={new Date().toISOString().split('T')[0]}
                   value={formData.appointmentDate}
                   onChange={(e) => setFormData({ ...formData, appointmentDate: e.target.value })}
                   required

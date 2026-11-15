@@ -127,7 +127,16 @@ const getByJob = (jobId) => {
   return inv ? get(inv.id) : null
 }
 
-const generateFromJob = (jobId, { discount = 0, userId = null } = {}) => {
+const generateFromJob = (jobId, options = {}) => {
+  let discount = 0
+  let userId = null
+  if (typeof options === 'number' || typeof options === 'string') {
+    discount = options
+  } else if (options && typeof options === 'object') {
+    discount = options.discount !== undefined ? options.discount : 0
+    userId = options.userId || null
+  }
+
   return dbHelper.runTransaction(() => {
     // Check if invoice already exists for this job
     const existing = dbHelper.queryOne('SELECT id FROM invoices WHERE job_card_id = ?', [jobId])
@@ -138,8 +147,11 @@ const generateFromJob = (jobId, { discount = 0, userId = null } = {}) => {
     const job = jobService.get(jobId)
     if (!job) throw new Error('Job Card not found.')
 
+    if (job.status === 'cancelled') {
+      throw new Error('Cannot generate an invoice for a cancelled Job Card.')
+    }
+
     const invoiceNo = generateInvoiceNo()
-    const discountAmount = Math.max(0, parseFloat(discount) || 0)
 
     // Calculate subtotal from tasks and parts
     let subtotal = 0
@@ -177,7 +189,20 @@ const generateFromJob = (jobId, { discount = 0, userId = null } = {}) => {
       })
     }
 
+    const discountAmount = Number(discount || 0)
+    if (!Number.isFinite(discountAmount) || discountAmount < 0 || discountAmount > subtotal) {
+      throw new Error('Discount must be between 0 and the invoice subtotal.')
+    }
+
     const total = Math.max(0, subtotal - discountAmount)
+
+    // If job was not already completed, auto-complete it
+    if (job.status !== 'completed') {
+      dbHelper.runSql(
+        "UPDATE job_cards SET status = 'completed', completed_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+        [jobId]
+      )
+    }
 
     const invRes = dbHelper.runSql(
       `INSERT INTO invoices (invoice_no, job_card_id, customer_id, vehicle_id, subtotal, discount, total, payment_status, created_by)
@@ -228,5 +253,6 @@ module.exports = {
   get,
   getByJob,
   generateFromJob,
+  generate: generateFromJob,
   cancel
 }

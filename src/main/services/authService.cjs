@@ -86,32 +86,34 @@ const getAuthenticatedCaller = (callerContext) => {
 }
 
 const requireAdminCaller = (callerContext = null) => {
+  let caller = null
   if (callerContext) {
-    const caller = getAuthenticatedCaller(callerContext)
-    if (caller.role !== 'admin_owner') {
-      throw new Error('Access denied: Administrator privileges are required.')
-    }
-    return caller
+    caller = getAuthenticatedCaller(callerContext)
+  } else if (currentSessionUser && currentSessionUser.id) {
+    caller = getAuthenticatedCaller({ id: currentSessionUser.id })
+  } else {
+    caller = currentSessionUser
   }
-  const user = currentSessionUser
-  if (!user || !user.role) {
+
+  if (!caller || !caller.role) {
     throw new Error('Access denied: Authentication required.')
   }
-  if (user.role !== 'admin_owner') {
-    throw new Error(`Access denied: Administrator role required (current: ${user.role}).`)
+  if (caller.role !== 'admin_owner') {
+    throw new Error(`Access denied: Administrator role required (current: ${caller.role}).`)
   }
-  return user
+  return caller
 }
 
 const requireRole = (allowedRoles = [], callerContext = null) => {
-  let user = currentSessionUser
+  let user = null
   if (callerContext) {
-    try {
-      user = getAuthenticatedCaller(callerContext)
-    } catch (_) {
-      // fallback to currentSessionUser
-    }
+    user = getAuthenticatedCaller(callerContext)
+  } else if (currentSessionUser && currentSessionUser.id) {
+    user = getAuthenticatedCaller({ id: currentSessionUser.id })
+  } else {
+    user = currentSessionUser
   }
+
   if (!user || !user.role) {
     throw new Error('Access denied: Authentication required.')
   }
@@ -380,6 +382,16 @@ const updateUser = (id, data = {}, callerContext) => {
        WHERE id = ?`,
       [nextDisplayName, nextRole, nextIsActive, targetId]
     )
+
+    if (currentSessionUser && currentSessionUser.id === targetId) {
+      if (nextIsActive === 0) {
+        currentSessionUser = null
+      } else {
+        currentSessionUser.role = nextRole
+        currentSessionUser.displayName = nextDisplayName
+        currentSessionUser.isActive = nextIsActive
+      }
+    }
 
     dbHelper.runSql(
       `INSERT INTO audit_log (user_id, action, entity_type, entity_id, details_json)

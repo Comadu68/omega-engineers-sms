@@ -216,6 +216,7 @@ export default function App() {
               <JobCards
                 initialSelectedJobId={selectedJobId}
                 prefillData={jobCardPrefill}
+                currentUser={currentUser}
                 onNavigateToInvoice={(invId) => {
                   if (canAccessModule(userRole, 'invoices')) {
                     setSelectedInvoiceId(invId)
@@ -228,6 +229,7 @@ export default function App() {
             {activeTab === 'appointments' && (
               <Appointments
                 onOpenJobCardWithDetails={handleOpenJobWithPrefill}
+                currentUser={currentUser}
               />
             )}
 

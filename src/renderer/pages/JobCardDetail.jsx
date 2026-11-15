@@ -2,11 +2,13 @@ import React, { useEffect, useState } from 'react'
 import { Badge } from '../components/Badge'
 import { Modal } from '../components/Modal'
 
-export const JobCardDetail = ({ jobId, onBack, onNavigateToInvoice }) => {
+export const JobCardDetail = ({ jobId, onBack, onNavigateToInvoice, currentUser = null }) => {
   const [job, setJob] = useState(null)
   const [loading, setLoading] = useState(true)
   const [mechanics, setMechanics] = useState([])
   const [inventoryItems, setInventoryItems] = useState([])
+  const [customerView, setCustomerView] = useState(false)
+  const [activeUser, setActiveUser] = useState(currentUser)
 
   // Modal states
   const [isAddTaskOpen, setIsAddTaskOpen] = useState(false)
@@ -17,11 +19,18 @@ export const JobCardDetail = ({ jobId, onBack, onNavigateToInvoice }) => {
   // Forms
   const [taskForm, setTaskForm] = useState({ description: '', serviceCharge: '', note: '' })
   const [partForm, setPartForm] = useState({ inventoryItemId: '', qty: '1', sellingPriceOverride: '' })
+  const [selectedItemBatches, setSelectedItemBatches] = useState([])
   const [cancellationReason, setCancellationReason] = useState('')
   const [invoiceDiscount, setInvoiceDiscount] = useState('0')
 
   const [formError, setFormError] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
+
+  useEffect(() => {
+    if (!activeUser && window.omega?.auth?.getCurrentUser) {
+      window.omega.auth.getCurrentUser().then(setActiveUser).catch(() => {})
+    }
+  }, [activeUser])
 
   const loadJob = async () => {
     try {
@@ -52,6 +61,27 @@ export const JobCardDetail = ({ jobId, onBack, onNavigateToInvoice }) => {
     loadJob()
   }, [jobId])
 
+  useEffect(() => {
+    if (isAddPartOpen && partForm.inventoryItemId) {
+      window.omega.inventory.get(partForm.inventoryItemId)
+        .then((item) => {
+          if (item && item.batches) {
+            const active = item.batches
+              .filter((b) => (b.remainingQty || 0) > 0)
+              .sort((a, b) => {
+                if (a.receivedAt < b.receivedAt) return -1
+                if (a.receivedAt > b.receivedAt) return 1
+                return a.id - b.id
+              })
+            setSelectedItemBatches(active)
+          } else {
+            setSelectedItemBatches([])
+          }
+        })
+        .catch(() => setSelectedItemBatches([]))
+    }
+  }, [isAddPartOpen, partForm.inventoryItemId])
+
   const handleStatusChange = async (newStatus) => {
     if (newStatus === 'cancelled') {
       setCancellationReason('')
@@ -60,8 +90,12 @@ export const JobCardDetail = ({ jobId, onBack, onNavigateToInvoice }) => {
     }
 
     try {
-      await window.omega.jobs.updateStatus(job.id, newStatus)
-      loadJob()
+      const updated = await window.omega.jobs.updateStatus(job.id, newStatus)
+      await loadJob()
+      // Feature WW-F1: Auto-prompt invoice creation modal when job transitions to completed
+      if (newStatus === 'completed' && (!updated || !updated.invoiceId)) {
+        setIsGenerateInvoiceOpen(true)
+      }
     } catch (err) {
       alert(err.message || 'Failed to update status.')
     }
@@ -371,7 +405,7 @@ export const JobCardDetail = ({ jobId, onBack, onNavigateToInvoice }) => {
               setTaskForm({ description: '', serviceCharge: '', note: '' })
               setIsAddTaskOpen(true)
             }}
-            disabled={job.status === 'cancelled'}
+            disabled={isJobLocked}
           >
             + Add Task
           </button>
@@ -415,7 +449,7 @@ export const JobCardDetail = ({ jobId, onBack, onNavigateToInvoice }) => {
                       checked={t.status === 'completed'}
                       onChange={() => handleToggleTaskStatus(t.id, t.status)}
                       style={{ width: '16px', height: '16px', cursor: 'pointer' }}
-                      disabled={job.status === 'cancelled'}
+                      disabled={isJobLocked}
                     />
                   </td>
                   <td>
@@ -433,7 +467,7 @@ export const JobCardDetail = ({ jobId, onBack, onNavigateToInvoice }) => {
                       className="btn btn-danger btn-sm"
                       style={{ padding: '2px 6px', fontSize: '10px' }}
                       onClick={() => handleDeleteTask(t.id)}
-                      disabled={job.status === 'cancelled'}
+                      disabled={isJobLocked}
                     >
                       ✕
                     </button>
@@ -461,7 +495,7 @@ export const JobCardDetail = ({ jobId, onBack, onNavigateToInvoice }) => {
               setFormError('')
               setIsAddPartOpen(true)
             }}
-            disabled={job.status === 'cancelled'}
+            disabled={isJobLocked}
           >
             + Consume Part (FIFO)
           </button>
@@ -478,7 +512,7 @@ export const JobCardDetail = ({ jobId, onBack, onNavigateToInvoice }) => {
                 <th>Part Description</th>
                 <th>Batch No</th>
                 <th>Qty</th>
-                <th>FIFO Cost Price</th>
+                {canViewConfidential && <th>FIFO Cost Price</th>}
                 <th>Selling Price</th>
                 <th>Line Total</th>
                 <th>Action</th>
@@ -497,7 +531,9 @@ export const JobCardDetail = ({ jobId, onBack, onNavigateToInvoice }) => {
                     </span>
                   </td>
                   <td style={{ fontWeight: 700 }}>{p.qty}</td>
-                  <td style={{ color: 'var(--text-muted)' }}>Rs. {p.unitCostAtUse.toLocaleString()}</td>
+                  {canViewConfidential && (
+                    <td style={{ color: 'var(--text-muted)' }}>Rs. {p.unitCostAtUse.toLocaleString()}</td>
+                  )}
                   <td style={{ fontWeight: 600 }}>Rs. {p.sellingPriceAtUse.toLocaleString()}</td>
                   <td style={{ fontWeight: 700 }}>Rs. {p.lineTotal.toLocaleString()}</td>
                   <td>
@@ -506,7 +542,7 @@ export const JobCardDetail = ({ jobId, onBack, onNavigateToInvoice }) => {
                       className="btn btn-danger btn-sm"
                       style={{ padding: '2px 6px', fontSize: '10px' }}
                       onClick={() => handleRemovePart(p.id)}
-                      disabled={job.status === 'cancelled'}
+                      disabled={isJobLocked}
                     >
                       Return Qty
                     </button>
@@ -526,9 +562,23 @@ export const JobCardDetail = ({ jobId, onBack, onNavigateToInvoice }) => {
             borderRadius: 'var(--radius-md)',
             border: '1px solid var(--border-color)',
             display: 'flex',
-            justifyContent: 'flex-end'
+            justifyContent: 'space-between',
+            alignItems: 'flex-start'
           }}
         >
+          {/* Customer View Toggle */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
+              <input
+                type="checkbox"
+                checked={customerView}
+                onChange={(e) => setCustomerView(e.target.checked)}
+                style={{ cursor: 'pointer' }}
+              />
+              <span>Customer View (Hide Margins &amp; Batch Cost)</span>
+            </label>
+          </div>
+
           <div style={{ width: '320px', display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '13px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
               <span style={{ color: 'var(--text-muted)' }}>Service / Labour Total:</span>
@@ -538,14 +588,18 @@ export const JobCardDetail = ({ jobId, onBack, onNavigateToInvoice }) => {
               <span style={{ color: 'var(--text-muted)' }}>Parts Sales Total:</span>
               <strong>Rs. {job.partsSalesTotal.toLocaleString()}</strong>
             </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-muted)', fontSize: '12px' }}>
-              <span>Parts FIFO Batch Cost (COGS):</span>
-              <span>Rs. {job.partsCostTotal.toLocaleString()}</span>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--success-text)', fontSize: '12px', fontWeight: 600 }}>
-              <span>Gross Parts Margin:</span>
-              <span>Rs. {(job.partsSalesTotal - job.partsCostTotal).toLocaleString()}</span>
-            </div>
+            {canViewConfidential && (
+              <>
+                <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-muted)', fontSize: '12px' }}>
+                  <span>Parts FIFO Batch Cost (COGS):</span>
+                  <span>Rs. {job.partsCostTotal.toLocaleString()}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--success-text)', fontSize: '12px', fontWeight: 600 }}>
+                  <span>Gross Parts Margin:</span>
+                  <span>Rs. {(job.partsSalesTotal - job.partsCostTotal).toLocaleString()}</span>
+                </div>
+              </>
+            )}
             <div
               style={{
                 display: 'flex',
@@ -714,6 +768,55 @@ export const JobCardDetail = ({ jobId, onBack, onNavigateToInvoice }) => {
                 />
               </div>
             </div>
+
+            {/* Feature WW-F3: Batch Breakdown Preview Before FIFO Deduction */}
+            {(() => {
+              const qtyNeeded = Math.max(0, parseFloat(partForm.qty) || 0)
+              let remainingToDeduct = qtyNeeded
+              const batchBreakdown = []
+              for (const b of selectedItemBatches) {
+                if (remainingToDeduct <= 0) break
+                const take = Math.min(b.remainingQty || 0, remainingToDeduct)
+                batchBreakdown.push({
+                  batchNo: b.batchNo,
+                  unitCost: b.unitCost,
+                  deductQty: take,
+                  remainingInBatch: b.remainingQty
+                })
+                remainingToDeduct -= take
+              }
+
+              if (batchBreakdown.length === 0) return null
+
+              return (
+                <div style={{ marginTop: '14px', padding: '10px 14px', background: 'var(--bg-main)', borderRadius: '6px', border: '1px solid var(--border-color)', fontSize: '12px' }}>
+                  <div style={{ fontWeight: 700, marginBottom: '6px', color: 'var(--text-main)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <span>📦 FIFO Batch Allocation Preview</span>
+                    {batchBreakdown.length > 1 && (
+                      <span style={{ fontSize: '11px', color: 'var(--warning-text)', fontWeight: 600 }}>Multi-Batch Split ({batchBreakdown.length} batches)</span>
+                    )}
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    {batchBreakdown.map((b, idx) => (
+                      <div key={b.batchNo || idx} style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0', borderBottom: idx < batchBreakdown.length - 1 ? '1px dashed var(--border-subtle)' : 'none' }}>
+                        <span>
+                          {idx === 0 ? '🟢 Oldest Batch' : '🔵 Next Batch'} <strong>#{b.batchNo}</strong>
+                          <span style={{ color: 'var(--text-muted)', marginLeft: '6px' }}>({b.remainingInBatch} in stock{canViewConfidential ? ` @ Rs. ${b.unitCost?.toLocaleString()}` : ''})</span>
+                        </span>
+                        <span style={{ fontWeight: 700, color: 'var(--primary)' }}>
+                          Deduct: {b.deductQty} unit{b.deductQty === 1 ? '' : 's'}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                  {remainingToDeduct > 0 && (
+                    <div style={{ marginTop: '6px', color: 'var(--danger-text)', fontWeight: 600, fontSize: '11px' }}>
+                      ⚠️ Shortfall: Insufficient stock (short by {remainingToDeduct} units).
+                    </div>
+                  )}
+                </div>
+              )
+            })()}
           </form>
         </Modal>
       )}

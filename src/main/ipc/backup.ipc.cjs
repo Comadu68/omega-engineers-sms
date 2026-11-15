@@ -9,7 +9,6 @@ const register = () => {
   })
 
   ipcMain.handle('backup:list', async () => {
-    authService.requireAdminCaller()
     return backupService.listBackups()
   })
 
