@@ -684,6 +684,86 @@ async function runInventoryValidationTests() {
 
     console.log('✓ Duplicate SKU, missing references, and category filters passed')
 
+    // -------------------------------------------------------------------------
+    // TEST 10: Supplier CRUD, Phone Validation, Purchase Batches & Stock Danger List (SCRUM-25, 28, 29)
+    // -------------------------------------------------------------------------
+    console.log('\n[Test 10] Supplier CRUD, GRN Purchase Batches, and Stock Danger List (SCRUM-25, 28, 29)')
+
+    assert.throws(
+      () => inventoryService.createSupplier({ name: '   ' }),
+      /Supplier name is required/i,
+      'Empty supplier name must be rejected'
+    )
+
+    assert.throws(
+      () => inventoryService.createSupplier({ name: 'Invalid Phone Vendor', phone: '12345' }),
+      /Invalid supplier phone number/i,
+      'Invalid Sri Lankan phone number must be rejected on supplier creation'
+    )
+
+    const sup1 = inventoryService.createSupplier({
+      name: 'Dimo Lanka Auto Parts',
+      phone: '+94 11 234 5678',
+      address: 'Panchikawatta, Colombo 10',
+      notes: 'Genuine parts distributor'
+    })
+    assert.strictEqual(sup1.phone, '0112345678', 'Supplier phone should normalize to 10-digit Sri Lankan format')
+
+    // Duplicate supplier name rejected
+    assert.throws(
+      () => inventoryService.createSupplier({ name: 'dimo lanka auto parts' }),
+      /already exists/i,
+      'Case-insensitive duplicate supplier name must be rejected'
+    )
+
+    // Update supplier
+    const updatedSup1 = inventoryService.updateSupplier(sup1.id, {
+      phone: '077 888 9900',
+      address: 'Colombo 02'
+    })
+    assert.strictEqual(updatedSup1.phone, '0778889900')
+    assert.strictEqual(updatedSup1.address, 'Colombo 02')
+
+    // Link item to supplier & record GRN batch
+    inventoryService.updateItem(otherItem.id, { defaultSupplierId: sup1.id, minimumStockLevel: 10 })
+    inventoryService.receiveBatch({
+      inventoryItemId: otherItem.id,
+      supplierId: sup1.id,
+      supplierDocumentNo: 'GRN-2026-501',
+      receivedAt: '2026-09-10',
+      receivedQty: 4,
+      unitCost: 1800
+    })
+
+    // Check Stock Danger List metrics (currentStock = 4, minStock = 10 -> shortfall = 6, recommendedReorder = 16)
+    const dangerList = inventoryService.list({ lowStockOnly: true })
+    const dangerTarget = dangerList.find((i) => i.id === otherItem.id)
+    assert.ok(dangerTarget, 'Item with 4/10 stock must appear in Stock Danger List')
+    assert.strictEqual(dangerTarget.shortfallQty, 6, 'Shortfall must be 10 - 4 = 6')
+    assert.strictEqual(dangerTarget.recommendedReorderQty, 16, 'Recommended reorder must be 2*10 - 4 = 16')
+    assert.strictEqual(dangerTarget.defaultSupplierPhone, '0778889900', 'Supplier phone must be exposed on danger item')
+
+    // Check Purchase Batches (GRN history)
+    const grnBatches = inventoryService.getPurchaseBatches({ supplierId: sup1.id, search: 'GRN-2026-501' })
+    assert.strictEqual(grnBatches.length, 1, 'Should find the GRN purchase batch for supplier')
+    assert.strictEqual(grnBatches[0].totalCost, 7200, 'Total batch cost should be 4 * 1800 = 7200')
+
+    // Deactivate & Reactivate Supplier
+    inventoryService.deactivateSupplier(sup1.id, 0)
+    assert.strictEqual(
+      inventoryService.getSuppliers({ includeInactive: false }).some((s) => s.id === sup1.id),
+      false,
+      'Deactivated supplier should be hidden from active supplier list'
+    )
+    assert.strictEqual(
+      inventoryService.getSuppliers({ includeInactive: true }).some((s) => s.id === sup1.id),
+      true,
+      'Deactivated supplier should be visible when includeInactive is true'
+    )
+    inventoryService.deactivateSupplier(sup1.id, 1)
+
+    console.log('✓ Supplier CRUD, GRN Purchase Batches, and Stock Danger List passed')
+
     console.log('\n======================================================================')
     console.log('ALL INVENTORY VALIDATION & FIFO TESTS PASSED WITH 100% SUCCESS!')
     console.log('======================================================================')

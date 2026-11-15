@@ -2,6 +2,28 @@ import React, { useEffect, useState } from 'react'
 import { Badge } from '../components/Badge'
 import { Modal } from '../components/Modal'
 
+const escapeCsvCell = (value) => {
+  if (value === null || value === undefined) return ''
+  const str = String(value)
+  if (/[",\r\n]/.test(str)) {
+    return `"${str.replace(/"/g, '""')}"`
+  }
+  return str
+}
+
+const downloadCsvFile = (filename, rows) => {
+  const csvContent = '\uFEFF' + rows.map((row) => row.map(escapeCsvCell).join(',')).join('\r\n')
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.setAttribute('download', filename)
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+  URL.revokeObjectURL(url)
+}
+
 export const Reports = () => {
   const todayStr = new Date().toISOString().slice(0, 10)
   const [activeTab, setActiveTab] = useState('daily') // 'daily', 'jobs', 'sales', 'inventory', 'mechanics'
@@ -29,7 +51,37 @@ export const Reports = () => {
   const [inventoryReport, setInventoryReport] = useState(null)
   const [mechanicsReport, setMechanicsReport] = useState([])
   const [dateRange, setDateRange] = useState({ from: '', to: '' })
+  const [reportError, setReportError] = useState('')
   const [reportLoading, setReportLoading] = useState(false)
+
+  const applyDatePreset = (preset) => {
+    const now = new Date()
+    const endStr = now.toISOString().slice(0, 10)
+    if (preset === 'all') {
+      setDateRange({ from: '', to: '' })
+      return
+    }
+    if (preset === 'today') {
+      setDateRange({ from: endStr, to: endStr })
+      return
+    }
+    if (preset === '7days') {
+      const start = new Date(now)
+      start.setDate(start.getDate() - 6)
+      setDateRange({ from: start.toISOString().slice(0, 10), to: endStr })
+      return
+    }
+    if (preset === 'month') {
+      const startStr = `${endStr.slice(0, 7)}-01`
+      setDateRange({ from: startStr, to: endStr })
+      return
+    }
+    if (preset === '30days') {
+      const start = new Date(now)
+      start.setDate(start.getDate() - 29)
+      setDateRange({ from: start.toISOString().slice(0, 10), to: endStr })
+    }
+  }
 
   const loadDailySummary = async () => {
     try {
@@ -46,6 +98,11 @@ export const Reports = () => {
   }
 
   const loadOtherReports = async () => {
+    setReportError('')
+    if (dateRange.from && dateRange.to && dateRange.from > dateRange.to) {
+      setReportError('Start date (From) cannot be later than End date (To).')
+      return
+    }
     try {
       setReportLoading(true)
       const filters = {
@@ -68,6 +125,7 @@ export const Reports = () => {
       }
     } catch (err) {
       console.error('Failed to load report:', err)
+      setReportError(err.message || 'Failed to load report.')
     } finally {
       setReportLoading(false)
     }
@@ -80,6 +138,139 @@ export const Reports = () => {
       loadOtherReports()
     }
   }, [activeTab, selectedDate, dateRange])
+
+  const handleExportExcelCsv = () => {
+    const stamp = activeTab === 'daily' ? selectedDate : (dateRange.from || todayStr)
+
+    if (activeTab === 'daily' && dailyData) {
+      const rows = [
+        ['OMEGA ENGINEERS SERVICE STATION - DAILY FINANCIAL SUMMARY REPORT'],
+        ['Report Date', dailyData.date],
+        [],
+        ['METRIC', 'AMOUNT (LKR)'],
+        ['Service / Labour Revenue', dailyData.serviceRevenue],
+        ['Parts Sales Revenue', dailyData.partsRevenue],
+        ['Invoice Discounts Given', -(dailyData.totalDiscount || 0)],
+        ['Total Net Revenue', dailyData.totalRevenue],
+        ['Parts FIFO COGS', dailyData.partsCogs],
+        ['Gross Profit', dailyData.grossProfit],
+        ['Operating Expenses', dailyData.operatingExpenses],
+        ['Net Operating Profit', dailyData.netProfit],
+        ['Cash Collected (Payments)', dailyData.cashCollected],
+        [],
+        ['INVOICES ISSUED ON DATE'],
+        ['Invoice No', 'Job No', 'Customer Name', 'Vehicle Reg No', 'Total (LKR)', 'Payment Status'],
+        ...(dailyData.dailyInvoices || []).map((inv) => [
+          inv.invoiceNo,
+          inv.jobNo,
+          inv.customerName,
+          inv.registrationNo,
+          inv.total,
+          inv.paymentStatus
+        ]),
+        [],
+        ['OPERATING EXPENSES ON DATE'],
+        ['Category', 'Description', 'Reference No', 'Amount (LKR)'],
+        ...(dailyData.dailyExpenses || []).map((exp) => [
+          exp.category,
+          exp.description,
+          exp.referenceNo || '',
+          exp.amount
+        ])
+      ]
+      downloadCsvFile(`Omega_Daily_Summary_${stamp}.csv`, rows)
+      return
+    }
+
+    if (activeTab === 'jobs' && jobsReport) {
+      const rows = [
+        ['OMEGA ENGINEERS SERVICE STATION - JOB CARDS REPORT'],
+        ['Date Filter', `${dateRange.from || 'All'} to ${dateRange.to || 'All'}`],
+        ['Total Jobs', jobsReport.summary.total, 'Completed', jobsReport.summary.completed, 'Total Billed (LKR)', jobsReport.summary.totalBilled],
+        [],
+        ['Job ID', 'Customer', 'Vehicle Reg No', 'Technician', 'Status', 'Billed Amount (LKR)', 'Opened Date'],
+        ...(jobsReport.rows || []).map((r) => [
+          r.jobNo,
+          r.customerName,
+          r.registrationNo,
+          r.mechanicName || 'Unassigned',
+          r.status,
+          r.billAmount || 0,
+          r.openedAt ? r.openedAt.slice(0, 10) : ''
+        ])
+      ]
+      downloadCsvFile(`Omega_Job_Cards_Report_${stamp}.csv`, rows)
+      return
+    }
+
+    if (activeTab === 'sales' && salesReport) {
+      const rows = [
+        ['OMEGA ENGINEERS SERVICE STATION - SALES & REVENUE REPORT'],
+        ['Date Filter', `${dateRange.from || 'All'} to ${dateRange.to || 'All'}`],
+        ['Total Invoiced Sales (LKR)', salesReport.totalSales, 'Parts COGS (LKR)', salesReport.totalCogs, 'Gross Margin (LKR)', salesReport.grossProfit],
+        [],
+        ['Invoice No', 'Customer', 'Vehicle Reg No', 'Subtotal (LKR)', 'Discount (LKR)', 'Grand Total (LKR)', 'Parts COGS (LKR)', 'Payment Status', 'Issued Date'],
+        ...(salesReport.rows || []).map((r) => [
+          r.invoiceNo,
+          r.customerName,
+          r.registrationNo,
+          r.subtotal,
+          r.discount,
+          r.total,
+          r.partsCogs,
+          r.paymentStatus,
+          r.issuedAt ? r.issuedAt.slice(0, 10) : ''
+        ])
+      ]
+      downloadCsvFile(`Omega_Sales_Report_${stamp}.csv`, rows)
+      return
+    }
+
+    if (activeTab === 'inventory' && inventoryReport) {
+      const rows = [
+        ['OMEGA ENGINEERS SERVICE STATION - INVENTORY VALUATION REPORT'],
+        ['Generated Date', todayStr],
+        ['Total Catalog Items', inventoryReport.totalItems, 'Total Cost Valuation (LKR)', Math.round(inventoryReport.totalValuation), 'Potential Sales Value (LKR)', Math.round(inventoryReport.totalPotential)],
+        [],
+        ['SKU', 'Item Name', 'Category', 'In Stock Qty', 'Min Stock Level', 'Selling Price (LKR)', 'Valuation at Cost (LKR)', 'Potential Sales Value (LKR)'],
+        ...(inventoryReport.rows || []).map((r) => [
+          r.sku,
+          r.name,
+          r.category,
+          r.currentStock,
+          r.minStock,
+          r.sellingPrice,
+          Math.round(r.valuationAtCost),
+          Math.round(r.potentialSalesValue)
+        ])
+      ]
+      downloadCsvFile(`Omega_Inventory_Valuation_${todayStr}.csv`, rows)
+      return
+    }
+
+    if (activeTab === 'mechanics' && mechanicsReport) {
+      const rows = [
+        ['OMEGA ENGINEERS SERVICE STATION - MECHANIC PERFORMANCE REPORT'],
+        ['Date Filter', `${dateRange.from || 'All'} to ${dateRange.to || 'All'}`],
+        [],
+        ['Technician Name', 'Specialty', 'Availability Status', 'Total Assigned Jobs', 'Completed Jobs', 'Active Jobs', 'Total Revenue Handled (LKR)'],
+        ...(mechanicsReport || []).map((m) => [
+          m.name,
+          m.specialty || '',
+          m.availabilityStatus,
+          m.totalAssignedJobs,
+          m.completedJobs,
+          m.activeJobs,
+          m.totalRevenueHandled
+        ])
+      ]
+      downloadCsvFile(`Omega_Mechanic_Performance_${stamp}.csv`, rows)
+    }
+  }
+
+  const handleExportPdfPrint = () => {
+    window.print()
+  }
 
   const handleAddExpense = async (e) => {
     e.preventDefault()
@@ -214,8 +405,8 @@ export const Reports = () => {
 
   return (
     <div className="content-scrollable">
-      {/* Top Report Tab Navigation */}
-      <div className="toolbar" style={{ marginBottom: '18px' }}>
+      {/* Top Report Tab Navigation & Export Buttons (SCRUM-27) */}
+      <div className="toolbar no-print" style={{ marginBottom: '12px' }}>
         <div className="filter-chips">
           <button
             type="button"
@@ -254,9 +445,30 @@ export const Reports = () => {
           </button>
         </div>
 
+        {/* Export Actions (SCRUM-27: Export report as PDF or Excel) */}
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <button
+            type="button"
+            className="btn btn-secondary btn-sm"
+            onClick={handleExportExcelCsv}
+          >
+            📊 Export Excel (.CSV)
+          </button>
+          <button
+            type="button"
+            className="btn btn-primary btn-sm"
+            onClick={handleExportPdfPrint}
+          >
+            🖨️ Export PDF / Print
+          </button>
+        </div>
+      </div>
+
+      {/* Date Filter & Quick Presets Toolbar (SCRUM-30) */}
+      <div className="toolbar no-print" style={{ marginBottom: '18px', background: '#FFFFFF', padding: '10px 16px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)' }}>
         {activeTab === 'daily' ? (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)' }}>Date:</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+            <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)' }}>REPORT DATE:</span>
             <input
               type="date"
               className="form-input"
@@ -272,519 +484,569 @@ export const Reports = () => {
               Today
             </button>
           </div>
+        ) : activeTab === 'inventory' ? (
+          <div style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>
+            Real-time FIFO stock valuation across all active warehouse batches (as of {todayStr})
+          </div>
         ) : (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <input
-              type="date"
-              className="form-input"
-              style={{ width: 'auto', padding: '5px 8px', fontSize: '11px' }}
-              value={dateRange.from}
-              onChange={(e) => setDateRange({ ...dateRange, from: e.target.value })}
-            />
-            <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>to</span>
-            <input
-              type="date"
-              className="form-input"
-              style={{ width: 'auto', padding: '5px 8px', fontSize: '11px' }}
-              value={dateRange.to}
-              onChange={(e) => setDateRange({ ...dateRange, to: e.target.value })}
-            />
-            <button
-              type="button"
-              className="btn btn-secondary btn-sm"
-              onClick={() => setDateRange({ from: '', to: '' })}
-            >
-              Reset
-            </button>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', flexWrap: 'wrap', gap: '10px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+              <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)' }}>DATE RANGE:</span>
+              <input
+                type="date"
+                className="form-input"
+                style={{ width: 'auto', padding: '5px 8px', fontSize: '12px' }}
+                value={dateRange.from}
+                onChange={(e) => setDateRange({ ...dateRange, from: e.target.value })}
+              />
+              <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>to</span>
+              <input
+                type="date"
+                className="form-input"
+                style={{ width: 'auto', padding: '5px 8px', fontSize: '12px' }}
+                value={dateRange.to}
+                onChange={(e) => setDateRange({ ...dateRange, to: e.target.value })}
+              />
+            </div>
+
+            <div className="filter-chips">
+              <button type="button" className="chip" onClick={() => applyDatePreset('today')}>
+                Today
+              </button>
+              <button type="button" className="chip" onClick={() => applyDatePreset('7days')}>
+                Last 7 Days
+              </button>
+              <button type="button" className="chip" onClick={() => applyDatePreset('month')}>
+                This Month
+              </button>
+              <button type="button" className="chip" onClick={() => applyDatePreset('30days')}>
+                Last 30 Days
+              </button>
+              <button type="button" className="chip" onClick={() => applyDatePreset('all')}>
+                All Time
+              </button>
+            </div>
           </div>
         )}
       </div>
 
-      {/* DAILY SUMMARY TAB */}
-      {activeTab === 'daily' && (
-        <div>
-          {dailyLoading || !dailyData ? (
-            <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>
-              Calculating daily financial metrics...
-            </div>
-          ) : (
-            <div>
-              {/* Daily KPI Cards Row */}
-              <div className="kpi-grid">
-                <div className="kpi-card" style={{ '--accent-color': 'var(--primary)' }}>
-                  <div className="kpi-label">Total Revenue</div>
-                  <div className="kpi-value" style={{ color: 'var(--primary)' }}>
-                    Rs. {dailyData.totalRevenue.toLocaleString()}
-                  </div>
-                  <div className="kpi-subtext">Services + Parts Sales</div>
-                </div>
+      {reportError && (
+        <div className="no-print" style={{ background: 'var(--danger-bg)', color: 'var(--danger-text)', padding: '10px 14px', borderRadius: '8px', marginBottom: '16px', fontSize: '13px', fontWeight: 600 }}>
+          ⚠️ {reportError}
+        </div>
+      )}
 
-                <div className="kpi-card" style={{ '--accent-color': 'var(--warning)' }}>
-                  <div className="kpi-label">Parts FIFO COGS</div>
-                  <div className="kpi-value" style={{ color: 'var(--warning-text)' }}>
-                    Rs. {dailyData.partsCogs.toLocaleString()}
-                  </div>
-                  <div className="kpi-subtext">Actual batch cost of sold parts</div>
-                </div>
+      {/* Printable Report Container */}
+      <div className="print-target">
+        {/* Official Report Header shown when printing to PDF */}
+        <div className="print-only-header">
+          <div style={{ fontSize: '18px', fontWeight: 800 }}>OMEGA ENGINEERS SERVICE STATION</div>
+          <div style={{ fontSize: '13px', fontWeight: 700, marginTop: '2px' }}>
+            {activeTab === 'daily' && `Daily Financial Summary Report (${selectedDate})`}
+            {activeTab === 'jobs' && `Job Cards Report (${dateRange.from || 'All'} to ${dateRange.to || 'All'})`}
+            {activeTab === 'sales' && `Sales & Revenue Report (${dateRange.from || 'All'} to ${dateRange.to || 'All'})`}
+            {activeTab === 'inventory' && `Inventory FIFO Valuation Report (${todayStr})`}
+            {activeTab === 'mechanics' && `Mechanic Performance Report (${dateRange.from || 'All'} to ${dateRange.to || 'All'})`}
+          </div>
+        </div>
 
-                <div className="kpi-card" style={{ '--accent-color': 'var(--danger)' }}>
-                  <div className="kpi-label">Operating Expenses</div>
-                  <div className="kpi-value" style={{ color: 'var(--danger)' }}>
-                    Rs. {dailyData.operatingExpenses.toLocaleString()}
-                  </div>
-                  <div className="kpi-subtext">Utilities, Labour, Consumables</div>
-                </div>
-
-                <div className="kpi-card" style={{ '--accent-color': 'var(--success)' }}>
-                  <div className="kpi-label">Net Profit</div>
-                  <div
-                    className="kpi-value"
-                    style={{ color: dailyData.netProfit >= 0 ? 'var(--success-text)' : 'var(--danger)' }}
-                  >
-                    Rs. {dailyData.netProfit.toLocaleString()}
-                  </div>
-                  <div className="kpi-subtext">Revenue - COGS - Expenses</div>
-                </div>
-
-                <div className="kpi-card" style={{ '--accent-color': '#0284C7' }}>
-                  <div className="kpi-label">Cash Collected</div>
-                  <div className="kpi-value" style={{ color: '#0284C7' }}>
-                    Rs. {dailyData.cashCollected.toLocaleString()}
-                  </div>
-                  <div className="kpi-subtext">Actual payments received</div>
-                </div>
+        {/* DAILY SUMMARY TAB */}
+        {activeTab === 'daily' && (
+          <div>
+            {dailyLoading || !dailyData ? (
+              <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                Calculating daily financial metrics...
               </div>
+            ) : (
+              <div>
+                {/* Daily KPI Cards Row */}
+                <div className="kpi-grid">
+                  <div className="kpi-card" style={{ '--accent-color': 'var(--primary)' }}>
+                    <div className="kpi-label">Total Net Revenue</div>
+                    <div className="kpi-value" style={{ color: 'var(--primary)' }}>
+                      Rs. {dailyData.totalRevenue.toLocaleString()}
+                    </div>
+                    <div className="kpi-subtext">
+                      {dailyData.totalDiscount > 0
+                        ? `After Rs. ${dailyData.totalDiscount.toLocaleString()} discounts`
+                        : 'Services + Parts Sales'}
+                    </div>
+                  </div>
 
-              {/* Middle Section: 7-Day Trend Chart & Financial Statement */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: '20px', marginBottom: '24px' }}>
-                {/* Trend Chart */}
-                <div className="card" style={{ margin: 0 }}>
-                  <div className="card-header">
-                    <div>
-                      <h3 className="card-title">7-Day Financial Performance Trend</h3>
-                      <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-                        Comparison of Revenue, Cost/Expenses, and Net Profit
+                  <div className="kpi-card" style={{ '--accent-color': 'var(--warning)' }}>
+                    <div className="kpi-label">Parts FIFO COGS</div>
+                    <div className="kpi-value" style={{ color: 'var(--warning-text)' }}>
+                      Rs. {dailyData.partsCogs.toLocaleString()}
+                    </div>
+                    <div className="kpi-subtext">Actual batch cost of sold parts</div>
+                  </div>
+
+                  <div className="kpi-card" style={{ '--accent-color': 'var(--danger)' }}>
+                    <div className="kpi-label">Operating Expenses</div>
+                    <div className="kpi-value" style={{ color: 'var(--danger)' }}>
+                      Rs. {dailyData.operatingExpenses.toLocaleString()}
+                    </div>
+                    <div className="kpi-subtext">Utilities, Labour, Consumables</div>
+                  </div>
+
+                  <div className="kpi-card" style={{ '--accent-color': 'var(--success)' }}>
+                    <div className="kpi-label">Net Profit</div>
+                    <div
+                      className="kpi-value"
+                      style={{ color: dailyData.netProfit >= 0 ? 'var(--success-text)' : 'var(--danger)' }}
+                    >
+                      Rs. {dailyData.netProfit.toLocaleString()}
+                    </div>
+                    <div className="kpi-subtext">Revenue - COGS - Expenses</div>
+                  </div>
+
+                  <div className="kpi-card" style={{ '--accent-color': '#0284C7' }}>
+                    <div className="kpi-label">Cash Collected</div>
+                    <div className="kpi-value" style={{ color: '#0284C7' }}>
+                      Rs. {dailyData.cashCollected.toLocaleString()}
+                    </div>
+                    <div className="kpi-subtext">Actual payments received</div>
+                  </div>
+                </div>
+
+                {/* Middle Section: 7-Day Trend Chart & Financial Statement */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: '20px', marginBottom: '24px' }}>
+                  {/* Trend Chart */}
+                  <div className="card" style={{ margin: 0 }}>
+                    <div className="card-header">
+                      <div>
+                        <h3 className="card-title">7-Day Financial Performance Trend</h3>
+                        <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                          Comparison of Revenue, Cost/Expenses, and Net Profit
+                        </div>
                       </div>
                     </div>
-                  </div>
 
-                  <div style={{ padding: '10px 0' }}>
-                    {renderTrendChart()}
-                  </div>
-
-                  <div
-                    style={{
-                      display: 'flex',
-                      justifyContent: 'center',
-                      gap: '20px',
-                      fontSize: '11px',
-                      fontWeight: 600,
-                      paddingTop: '8px',
-                      borderTop: '1px solid var(--border-subtle)'
-                    }}
-                  >
-                    <span style={{ color: '#4361EE', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                      <span style={{ width: '10px', height: '10px', background: '#4361EE', borderRadius: '2px' }} />
-                      Revenue
-                    </span>
-                    <span style={{ color: '#E35757', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                      <span style={{ width: '10px', height: '10px', background: '#E35757', borderRadius: '2px' }} />
-                      COGS + Expenses
-                    </span>
-                    <span style={{ color: '#2FB171', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                      <span style={{ width: '10px', height: '10px', background: '#2FB171', borderRadius: '2px' }} />
-                      Net Profit
-                    </span>
-                  </div>
-                </div>
-
-                {/* Financial Statement Breakdown */}
-                <div className="card" style={{ margin: 0 }}>
-                  <div className="card-header">
-                    <h3 className="card-title">Summary Breakdown ({dailyData.date})</h3>
-                  </div>
-
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', fontSize: '13px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <span style={{ color: 'var(--text-muted)' }}>Service / Labour Revenue:</span>
-                      <strong>Rs. {dailyData.serviceRevenue.toLocaleString()}</strong>
-                    </div>
-
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <span style={{ color: 'var(--text-muted)' }}>Parts Sales Revenue:</span>
-                      <strong>Rs. {dailyData.partsRevenue.toLocaleString()}</strong>
-                    </div>
-
-                    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderTop: '1px solid var(--border-color)', fontWeight: 700, color: 'var(--primary)' }}>
-                      <span>Total Gross Revenue:</span>
-                      <span>Rs. {dailyData.totalRevenue.toLocaleString()}</span>
-                    </div>
-
-                    <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--warning-text)' }}>
-                      <span>Less: Parts FIFO COGS:</span>
-                      <span>- Rs. {dailyData.partsCogs.toLocaleString()}</span>
-                    </div>
-
-                    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderTop: '1px solid var(--border-subtle)', fontWeight: 700 }}>
-                      <span>Gross Profit:</span>
-                      <span>Rs. {dailyData.grossProfit.toLocaleString()}</span>
-                    </div>
-
-                    <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--danger)' }}>
-                      <span>Less: Operating Expenses:</span>
-                      <span>- Rs. {dailyData.operatingExpenses.toLocaleString()}</span>
+                    <div style={{ padding: '10px 0' }}>
+                      {renderTrendChart()}
                     </div>
 
                     <div
                       style={{
                         display: 'flex',
-                        justifyContent: 'space-between',
-                        fontSize: '16px',
-                        fontWeight: 800,
-                        color: dailyData.netProfit >= 0 ? 'var(--success-text)' : 'var(--danger)',
-                        paddingTop: '10px',
-                        borderTop: '2px solid var(--border-color)'
+                        justifyContent: 'center',
+                        gap: '20px',
+                        fontSize: '11px',
+                        fontWeight: 600,
+                        paddingTop: '8px',
+                        borderTop: '1px solid var(--border-subtle)'
                       }}
                     >
-                      <span>Net Operating Profit:</span>
-                      <span>Rs. {dailyData.netProfit.toLocaleString()}</span>
+                      <span style={{ color: '#4361EE', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <span style={{ width: '10px', height: '10px', background: '#4361EE', borderRadius: '2px' }} />
+                        Revenue
+                      </span>
+                      <span style={{ color: '#E35757', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <span style={{ width: '10px', height: '10px', background: '#E35757', borderRadius: '2px' }} />
+                        COGS + Expenses
+                      </span>
+                      <span style={{ color: '#2FB171', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <span style={{ width: '10px', height: '10px', background: '#2FB171', borderRadius: '2px' }} />
+                        Net Profit
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Financial Statement Breakdown */}
+                  <div className="card" style={{ margin: 0 }}>
+                    <div className="card-header">
+                      <h3 className="card-title">Summary Breakdown ({dailyData.date})</h3>
                     </div>
 
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '6px', padding: '8px 10px', background: '#F0F9FF', borderRadius: '6px', color: '#0369A1', fontSize: '12px', fontWeight: 600 }}>
-                      <span>Cash Collected (Payments):</span>
-                      <strong>Rs. {dailyData.cashCollected.toLocaleString()}</strong>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', fontSize: '13px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span style={{ color: 'var(--text-muted)' }}>Service / Labour Revenue:</span>
+                        <strong>Rs. {dailyData.serviceRevenue.toLocaleString()}</strong>
+                      </div>
+
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span style={{ color: 'var(--text-muted)' }}>Parts Sales Revenue:</span>
+                        <strong>Rs. {dailyData.partsRevenue.toLocaleString()}</strong>
+                      </div>
+
+                      {dailyData.totalDiscount > 0 && (
+                        <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--danger)' }}>
+                          <span>Less: Invoice Discounts:</span>
+                          <span>- Rs. {dailyData.totalDiscount.toLocaleString()}</span>
+                        </div>
+                      )}
+
+                      <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderTop: '1px solid var(--border-color)', fontWeight: 700, color: 'var(--primary)' }}>
+                        <span>Total Net Revenue:</span>
+                        <span>Rs. {dailyData.totalRevenue.toLocaleString()}</span>
+                      </div>
+
+                      <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--warning-text)' }}>
+                        <span>Less: Parts FIFO COGS:</span>
+                        <span>- Rs. {dailyData.partsCogs.toLocaleString()}</span>
+                      </div>
+
+                      <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderTop: '1px solid var(--border-subtle)', fontWeight: 700 }}>
+                        <span>Gross Profit:</span>
+                        <span>Rs. {dailyData.grossProfit.toLocaleString()}</span>
+                      </div>
+
+                      <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--danger)' }}>
+                        <span>Less: Operating Expenses:</span>
+                        <span>- Rs. {dailyData.operatingExpenses.toLocaleString()}</span>
+                      </div>
+
+                      <div
+                        style={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          fontSize: '16px',
+                          fontWeight: 800,
+                          color: dailyData.netProfit >= 0 ? 'var(--success-text)' : 'var(--danger)',
+                          paddingTop: '10px',
+                          borderTop: '2px solid var(--border-color)'
+                        }}
+                      >
+                        <span>Net Operating Profit:</span>
+                        <span>Rs. {dailyData.netProfit.toLocaleString()}</span>
+                      </div>
+
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '6px', padding: '8px 10px', background: '#F0F9FF', borderRadius: '6px', color: '#0369A1', fontSize: '12px', fontWeight: 600 }}>
+                        <span>Cash Collected (Payments):</span>
+                        <strong>Rs. {dailyData.cashCollected.toLocaleString()}</strong>
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
 
-              {/* Bottom Section: Invoices on Date & Expenses on Date */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1.3fr 1fr', gap: '20px' }}>
-                {/* Invoices on Date */}
-                <div className="card">
-                  <div className="card-header">
-                    <h3 className="card-title">Invoices Issued on {dailyData.date}</h3>
-                  </div>
-                  {dailyData.dailyInvoices?.length === 0 ? (
-                    <p style={{ margin: 0, color: 'var(--text-muted)', fontSize: '13px', padding: '10px 0' }}>
-                      No invoices issued on this date.
-                    </p>
-                  ) : (
-                    <table className="data-table">
-                      <thead>
-                        <tr>
-                          <th>Invoice No</th>
-                          <th>Customer</th>
-                          <th>Vehicle</th>
-                          <th>Total</th>
-                          <th>Status</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {dailyData.dailyInvoices.map((inv) => (
-                          <tr key={inv.id}>
-                            <td style={{ fontWeight: 700 }}>{inv.invoiceNo}</td>
-                            <td>{inv.customerName}</td>
-                            <td style={{ fontWeight: 600 }}>{inv.registrationNo}</td>
-                            <td style={{ fontWeight: 700 }}>Rs. {inv.total.toLocaleString()}</td>
-                            <td><Badge status={inv.paymentStatus} /></td>
+                {/* Bottom Section: Invoices on Date & Expenses on Date */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1.3fr 1fr', gap: '20px' }}>
+                  {/* Invoices on Date */}
+                  <div className="card">
+                    <div className="card-header">
+                      <h3 className="card-title">Invoices Issued on {dailyData.date}</h3>
+                    </div>
+                    {dailyData.dailyInvoices?.length === 0 ? (
+                      <p style={{ margin: 0, color: 'var(--text-muted)', fontSize: '13px', padding: '10px 0' }}>
+                        No invoices issued on this date.
+                      </p>
+                    ) : (
+                      <table className="data-table">
+                        <thead>
+                          <tr>
+                            <th>Invoice No</th>
+                            <th>Customer</th>
+                            <th>Vehicle</th>
+                            <th>Total</th>
+                            <th>Status</th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  )}
-                </div>
-
-                {/* Operating Expenses on Date */}
-                <div className="card">
-                  <div className="card-header">
-                    <h3 className="card-title">Operating Expenses Register</h3>
-                    <button
-                      type="button"
-                      className="btn btn-primary btn-sm"
-                      onClick={() => setIsExpenseModalOpen(true)}
-                    >
-                      + Record Expense
-                    </button>
+                        </thead>
+                        <tbody>
+                          {dailyData.dailyInvoices.map((inv) => (
+                            <tr key={inv.id}>
+                              <td style={{ fontWeight: 700 }}>{inv.invoiceNo}</td>
+                              <td>{inv.customerName}</td>
+                              <td style={{ fontWeight: 600 }}>{inv.registrationNo}</td>
+                              <td style={{ fontWeight: 700 }}>Rs. {inv.total.toLocaleString()}</td>
+                              <td><Badge status={inv.paymentStatus} /></td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    )}
                   </div>
-                  {dailyData.dailyExpenses?.length === 0 ? (
-                    <p style={{ margin: 0, color: 'var(--text-muted)', fontSize: '13px', padding: '10px 0' }}>
-                      No operating expenses recorded for this date.
-                    </p>
-                  ) : (
-                    <table className="data-table">
-                      <thead>
-                        <tr>
-                          <th>Category</th>
-                          <th>Description</th>
-                          <th>Amount</th>
-                          <th style={{ width: '40px' }}></th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {dailyData.dailyExpenses.map((exp) => (
-                          <tr key={exp.id}>
-                            <td style={{ fontWeight: 600, fontSize: '12px' }}>{exp.category}</td>
-                            <td style={{ color: 'var(--text-muted)' }}>{exp.description}</td>
-                            <td style={{ fontWeight: 700, color: 'var(--danger)' }}>
-                              Rs. {exp.amount.toLocaleString()}
-                            </td>
-                            <td>
-                              <button
-                                type="button"
-                                className="btn btn-danger btn-sm"
-                                style={{ padding: '2px 6px', fontSize: '10px' }}
-                                onClick={() => handleDeleteExpense(exp.id)}
-                              >
-                                ✕
-                              </button>
-                            </td>
+
+                  {/* Operating Expenses on Date */}
+                  <div className="card">
+                    <div className="card-header">
+                      <h3 className="card-title">Operating Expenses Register</h3>
+                      <button
+                        type="button"
+                        className="btn btn-primary btn-sm no-print"
+                        onClick={() => setIsExpenseModalOpen(true)}
+                      >
+                        + Record Expense
+                      </button>
+                    </div>
+                    {dailyData.dailyExpenses?.length === 0 ? (
+                      <p style={{ margin: 0, color: 'var(--text-muted)', fontSize: '13px', padding: '10px 0' }}>
+                        No operating expenses recorded for this date.
+                      </p>
+                    ) : (
+                      <table className="data-table">
+                        <thead>
+                          <tr>
+                            <th>Category</th>
+                            <th>Description</th>
+                            <th>Amount</th>
+                            <th className="no-print" style={{ width: '40px' }}></th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  )}
+                        </thead>
+                        <tbody>
+                          {dailyData.dailyExpenses.map((exp) => (
+                            <tr key={exp.id}>
+                              <td style={{ fontWeight: 600, fontSize: '12px' }}>{exp.category}</td>
+                              <td style={{ color: 'var(--text-muted)' }}>{exp.description}</td>
+                              <td style={{ fontWeight: 700, color: 'var(--danger)' }}>
+                                Rs. {exp.amount.toLocaleString()}
+                              </td>
+                              <td className="no-print">
+                                <button
+                                  type="button"
+                                  className="btn btn-danger btn-sm"
+                                  style={{ padding: '2px 6px', fontSize: '10px' }}
+                                  onClick={() => handleDeleteExpense(exp.id)}
+                                >
+                                  ✕
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    )}
+                  </div>
                 </div>
               </div>
-            </div>
-          )}
-        </div>
-      )}
+            )}
+          </div>
+        )}
 
-      {/* JOB CARDS REPORT TAB */}
-      {activeTab === 'jobs' && (
-        <div>
-          {reportLoading || !jobsReport ? (
-            <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>
-              Loading job cards report...
-            </div>
-          ) : (
-            <div>
-              <div className="kpi-grid">
-                <div className="kpi-card" style={{ '--accent-color': 'var(--primary)' }}>
-                  <div className="kpi-label">Total Jobs</div>
-                  <div className="kpi-value">{jobsReport.summary.total}</div>
-                </div>
-                <div className="kpi-card" style={{ '--accent-color': 'var(--warning)' }}>
-                  <div className="kpi-label">Pending</div>
-                  <div className="kpi-value">{jobsReport.summary.pending}</div>
-                </div>
-                <div className="kpi-card" style={{ '--accent-color': 'var(--info)' }}>
-                  <div className="kpi-label">In Progress</div>
-                  <div className="kpi-value">{jobsReport.summary.inProgress}</div>
-                </div>
-                <div className="kpi-card" style={{ '--accent-color': 'var(--success)' }}>
-                  <div className="kpi-label">Completed</div>
-                  <div className="kpi-value">{jobsReport.summary.completed}</div>
-                </div>
-                <div className="kpi-card" style={{ '--accent-color': 'var(--danger)' }}>
-                  <div className="kpi-label">Cancelled</div>
-                  <div className="kpi-value">{jobsReport.summary.cancelled}</div>
-                </div>
+        {/* JOB CARDS REPORT TAB */}
+        {activeTab === 'jobs' && (
+          <div>
+            {reportLoading || !jobsReport ? (
+              <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                Loading job cards report...
               </div>
+            ) : (
+              <div>
+                <div className="kpi-grid">
+                  <div className="kpi-card" style={{ '--accent-color': 'var(--primary)' }}>
+                    <div className="kpi-label">Total Jobs</div>
+                    <div className="kpi-value">{jobsReport.summary.total}</div>
+                  </div>
+                  <div className="kpi-card" style={{ '--accent-color': 'var(--warning)' }}>
+                    <div className="kpi-label">Pending</div>
+                    <div className="kpi-value">{jobsReport.summary.pending}</div>
+                  </div>
+                  <div className="kpi-card" style={{ '--accent-color': 'var(--info)' }}>
+                    <div className="kpi-label">In Progress</div>
+                    <div className="kpi-value">{jobsReport.summary.inProgress}</div>
+                  </div>
+                  <div className="kpi-card" style={{ '--accent-color': 'var(--success)' }}>
+                    <div className="kpi-label">Completed</div>
+                    <div className="kpi-value">{jobsReport.summary.completed}</div>
+                  </div>
+                  <div className="kpi-card" style={{ '--accent-color': 'var(--danger)' }}>
+                    <div className="kpi-label">Cancelled</div>
+                    <div className="kpi-value">{jobsReport.summary.cancelled}</div>
+                  </div>
+                </div>
 
-              <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-                <table className="data-table">
-                  <thead>
-                    <tr>
-                      <th>Job ID</th>
-                      <th>Customer</th>
-                      <th>Vehicle</th>
-                      <th>Technician</th>
-                      <th>Status</th>
-                      <th>Billed Amount</th>
-                      <th>Date</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {jobsReport.rows.map((r) => (
-                      <tr key={r.id}>
-                        <td style={{ fontWeight: 700 }}>{r.jobNo}</td>
-                        <td>{r.customerName}</td>
-                        <td>{r.registrationNo}</td>
-                        <td>{r.mechanicName || '—'}</td>
-                        <td><Badge status={r.status} /></td>
-                        <td style={{ fontWeight: 700 }}>Rs. {r.billAmount ? r.billAmount.toLocaleString() : '0'}</td>
-                        <td style={{ color: 'var(--text-muted)' }}>{r.openedAt ? r.openedAt.slice(0, 10) : '—'}</td>
+                <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+                  <table className="data-table">
+                    <thead>
+                      <tr>
+                        <th>Job ID</th>
+                        <th>Customer</th>
+                        <th>Vehicle</th>
+                        <th>Technician</th>
+                        <th>Status</th>
+                        <th>Billed Amount</th>
+                        <th>Date</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* SALES REPORT TAB */}
-      {activeTab === 'sales' && (
-        <div>
-          {reportLoading || !salesReport ? (
-            <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>
-              Loading sales report...
-            </div>
-          ) : (
-            <div>
-              <div className="kpi-grid">
-                <div className="kpi-card" style={{ '--accent-color': 'var(--primary)' }}>
-                  <div className="kpi-label">Total Invoiced Sales</div>
-                  <div className="kpi-value">Rs. {salesReport.totalSales.toLocaleString()}</div>
-                </div>
-                <div className="kpi-card" style={{ '--accent-color': 'var(--warning)' }}>
-                  <div className="kpi-label">Parts COGS</div>
-                  <div className="kpi-value">Rs. {salesReport.totalCogs.toLocaleString()}</div>
-                </div>
-                <div className="kpi-card" style={{ '--accent-color': 'var(--success)' }}>
-                  <div className="kpi-label">Gross Margin</div>
-                  <div className="kpi-value">Rs. {salesReport.grossProfit.toLocaleString()}</div>
-                </div>
-                <div className="kpi-card" style={{ '--accent-color': 'var(--text-main)' }}>
-                  <div className="kpi-label">Invoices Count</div>
-                  <div className="kpi-value">{salesReport.invoiceCount}</div>
+                    </thead>
+                    <tbody>
+                      {jobsReport.rows.map((r) => (
+                        <tr key={r.id}>
+                          <td style={{ fontWeight: 700 }}>{r.jobNo}</td>
+                          <td>{r.customerName}</td>
+                          <td>{r.registrationNo}</td>
+                          <td>{r.mechanicName || '—'}</td>
+                          <td><Badge status={r.status} /></td>
+                          <td style={{ fontWeight: 700 }}>Rs. {r.billAmount ? r.billAmount.toLocaleString() : '0'}</td>
+                          <td style={{ color: 'var(--text-muted)' }}>{r.openedAt ? r.openedAt.slice(0, 10) : '—'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               </div>
+            )}
+          </div>
+        )}
 
-              <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-                <table className="data-table">
-                  <thead>
-                    <tr>
-                      <th>Invoice No</th>
-                      <th>Customer</th>
-                      <th>Vehicle</th>
-                      <th>Subtotal</th>
-                      <th>Discount</th>
-                      <th>Grand Total</th>
-                      <th>COGS</th>
-                      <th>Payment Status</th>
-                      <th>Date</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {salesReport.rows.map((r) => (
-                      <tr key={r.id}>
-                        <td style={{ fontWeight: 700 }}>{r.invoiceNo}</td>
-                        <td>{r.customerName}</td>
-                        <td>{r.registrationNo}</td>
-                        <td>Rs. {r.subtotal.toLocaleString()}</td>
-                        <td style={{ color: 'var(--danger)' }}>Rs. {r.discount.toLocaleString()}</td>
-                        <td style={{ fontWeight: 800 }}>Rs. {r.total.toLocaleString()}</td>
-                        <td style={{ color: 'var(--text-muted)' }}>Rs. {r.partsCogs.toLocaleString()}</td>
-                        <td><Badge status={r.paymentStatus} /></td>
-                        <td style={{ color: 'var(--text-muted)' }}>{r.issuedAt ? r.issuedAt.slice(0, 10) : '—'}</td>
+        {/* SALES REPORT TAB */}
+        {activeTab === 'sales' && (
+          <div>
+            {reportLoading || !salesReport ? (
+              <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                Loading sales report...
+              </div>
+            ) : (
+              <div>
+                <div className="kpi-grid">
+                  <div className="kpi-card" style={{ '--accent-color': 'var(--primary)' }}>
+                    <div className="kpi-label">Total Invoiced Sales</div>
+                    <div className="kpi-value">Rs. {salesReport.totalSales.toLocaleString()}</div>
+                  </div>
+                  <div className="kpi-card" style={{ '--accent-color': 'var(--warning)' }}>
+                    <div className="kpi-label">Parts COGS</div>
+                    <div className="kpi-value">Rs. {salesReport.totalCogs.toLocaleString()}</div>
+                  </div>
+                  <div className="kpi-card" style={{ '--accent-color': 'var(--success)' }}>
+                    <div className="kpi-label">Gross Margin</div>
+                    <div className="kpi-value">Rs. {salesReport.grossProfit.toLocaleString()}</div>
+                  </div>
+                  <div className="kpi-card" style={{ '--accent-color': 'var(--text-main)' }}>
+                    <div className="kpi-label">Invoices Count</div>
+                    <div className="kpi-value">{salesReport.invoiceCount}</div>
+                  </div>
+                </div>
+
+                <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+                  <table className="data-table">
+                    <thead>
+                      <tr>
+                        <th>Invoice No</th>
+                        <th>Customer</th>
+                        <th>Vehicle</th>
+                        <th>Subtotal</th>
+                        <th>Discount</th>
+                        <th>Grand Total</th>
+                        <th>COGS</th>
+                        <th>Payment Status</th>
+                        <th>Date</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* INVENTORY REPORT TAB */}
-      {activeTab === 'inventory' && (
-        <div>
-          {reportLoading || !inventoryReport ? (
-            <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>
-              Loading inventory valuation...
-            </div>
-          ) : (
-            <div>
-              <div className="kpi-grid">
-                <div className="kpi-card" style={{ '--accent-color': 'var(--primary)' }}>
-                  <div className="kpi-label">Catalog Items</div>
-                  <div className="kpi-value">{inventoryReport.totalItems}</div>
-                </div>
-                <div className="kpi-card" style={{ '--accent-color': 'var(--warning)' }}>
-                  <div className="kpi-label">Stock Valuation (Cost)</div>
-                  <div className="kpi-value">Rs. {Math.round(inventoryReport.totalValuation).toLocaleString()}</div>
-                </div>
-                <div className="kpi-card" style={{ '--accent-color': 'var(--success)' }}>
-                  <div className="kpi-label">Potential Sales Value</div>
-                  <div className="kpi-value">Rs. {Math.round(inventoryReport.totalPotential).toLocaleString()}</div>
-                </div>
-                <div className="kpi-card" style={{ '--accent-color': 'var(--danger)' }}>
-                  <div className="kpi-label">Low Stock Alerts</div>
-                  <div className="kpi-value">{inventoryReport.lowStockCount}</div>
+                    </thead>
+                    <tbody>
+                      {salesReport.rows.map((r) => (
+                        <tr key={r.id}>
+                          <td style={{ fontWeight: 700 }}>{r.invoiceNo}</td>
+                          <td>{r.customerName}</td>
+                          <td>{r.registrationNo}</td>
+                          <td>Rs. {r.subtotal.toLocaleString()}</td>
+                          <td style={{ color: 'var(--danger)' }}>Rs. {r.discount.toLocaleString()}</td>
+                          <td style={{ fontWeight: 800 }}>Rs. {r.total.toLocaleString()}</td>
+                          <td style={{ color: 'var(--text-muted)' }}>Rs. {r.partsCogs.toLocaleString()}</td>
+                          <td><Badge status={r.paymentStatus} /></td>
+                          <td style={{ color: 'var(--text-muted)' }}>{r.issuedAt ? r.issuedAt.slice(0, 10) : '—'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               </div>
+            )}
+          </div>
+        )}
 
+        {/* INVENTORY REPORT TAB */}
+        {activeTab === 'inventory' && (
+          <div>
+            {reportLoading || !inventoryReport ? (
+              <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                Loading inventory valuation...
+              </div>
+            ) : (
+              <div>
+                <div className="kpi-grid">
+                  <div className="kpi-card" style={{ '--accent-color': 'var(--primary)' }}>
+                    <div className="kpi-label">Catalog Items</div>
+                    <div className="kpi-value">{inventoryReport.totalItems}</div>
+                  </div>
+                  <div className="kpi-card" style={{ '--accent-color': 'var(--warning)' }}>
+                    <div className="kpi-label">Stock Valuation (Cost)</div>
+                    <div className="kpi-value">Rs. {Math.round(inventoryReport.totalValuation).toLocaleString()}</div>
+                  </div>
+                  <div className="kpi-card" style={{ '--accent-color': 'var(--success)' }}>
+                    <div className="kpi-label">Potential Sales Value</div>
+                    <div className="kpi-value">Rs. {Math.round(inventoryReport.totalPotential).toLocaleString()}</div>
+                  </div>
+                  <div className="kpi-card" style={{ '--accent-color': 'var(--danger)' }}>
+                    <div className="kpi-label">Low Stock Alerts</div>
+                    <div className="kpi-value">{inventoryReport.lowStockCount}</div>
+                  </div>
+                </div>
+
+                <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+                  <table className="data-table">
+                    <thead>
+                      <tr>
+                        <th>SKU</th>
+                        <th>Item Name</th>
+                        <th>Category</th>
+                        <th>In Stock Qty</th>
+                        <th>Selling Price</th>
+                        <th>Valuation (at Cost)</th>
+                        <th>Sales Value</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {inventoryReport.rows.map((r) => (
+                        <tr key={r.id}>
+                          <td style={{ fontWeight: 700 }}>{r.sku}</td>
+                          <td style={{ fontWeight: 600 }}>{r.name}</td>
+                          <td>{r.category}</td>
+                          <td style={{ fontWeight: 700, color: r.currentStock <= r.minStock ? 'var(--danger)' : 'var(--text-main)' }}>
+                            {r.currentStock}
+                          </td>
+                          <td>Rs. {r.sellingPrice.toLocaleString()}</td>
+                          <td style={{ fontWeight: 600 }}>Rs. {Math.round(r.valuationAtCost).toLocaleString()}</td>
+                          <td style={{ fontWeight: 700 }}>Rs. {Math.round(r.potentialSalesValue).toLocaleString()}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* MECHANIC PERFORMANCE TAB */}
+        {activeTab === 'mechanics' && (
+          <div>
+            {reportLoading ? (
+              <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                Loading technician performance...
+              </div>
+            ) : (
               <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
                 <table className="data-table">
                   <thead>
                     <tr>
-                      <th>SKU</th>
-                      <th>Item Name</th>
-                      <th>Category</th>
-                      <th>In Stock Qty</th>
-                      <th>Selling Price</th>
-                      <th>Valuation (at Cost)</th>
-                      <th>Sales Value</th>
+                      <th>Technician Name</th>
+                      <th>Specialty</th>
+                      <th>Availability Status</th>
+                      <th>Total Assigned Jobs</th>
+                      <th>Completed Jobs</th>
+                      <th>Active Jobs</th>
+                      <th>Total Service Revenue Handled</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {inventoryReport.rows.map((r) => (
-                      <tr key={r.id}>
-                        <td style={{ fontWeight: 700 }}>{r.sku}</td>
-                        <td style={{ fontWeight: 600 }}>{r.name}</td>
-                        <td>{r.category}</td>
-                        <td style={{ fontWeight: 700, color: r.currentStock <= r.minStock ? 'var(--danger)' : 'var(--text-main)' }}>
-                          {r.currentStock}
+                    {mechanicsReport.map((m) => (
+                      <tr key={m.id}>
+                        <td style={{ fontWeight: 700 }}>{m.name}</td>
+                        <td>{m.specialty}</td>
+                        <td><Badge status={m.availabilityStatus} /></td>
+                        <td style={{ fontWeight: 600 }}>{m.totalAssignedJobs}</td>
+                        <td style={{ fontWeight: 700, color: 'var(--success-text)' }}>{m.completedJobs}</td>
+                        <td>{m.activeJobs}</td>
+                        <td style={{ fontWeight: 800, color: 'var(--primary)' }}>
+                          Rs. {m.totalRevenueHandled.toLocaleString()}
                         </td>
-                        <td>Rs. {r.sellingPrice.toLocaleString()}</td>
-                        <td style={{ fontWeight: 600 }}>Rs. {Math.round(r.valuationAtCost).toLocaleString()}</td>
-                        <td style={{ fontWeight: 700 }}>Rs. {Math.round(r.potentialSalesValue).toLocaleString()}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* MECHANIC PERFORMANCE TAB */}
-      {activeTab === 'mechanics' && (
-        <div>
-          {reportLoading ? (
-            <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>
-              Loading technician performance...
-            </div>
-          ) : (
-            <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-              <table className="data-table">
-                <thead>
-                  <tr>
-                    <th>Technician Name</th>
-                    <th>Specialty</th>
-                    <th>Availability Status</th>
-                    <th>Total Assigned Jobs</th>
-                    <th>Completed Jobs</th>
-                    <th>Active Jobs</th>
-                    <th>Total Service Revenue Handled</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {mechanicsReport.map((m) => (
-                    <tr key={m.id}>
-                      <td style={{ fontWeight: 700 }}>{m.name}</td>
-                      <td>{m.specialty}</td>
-                      <td><Badge status={m.availabilityStatus} /></td>
-                      <td style={{ fontWeight: 600 }}>{m.totalAssignedJobs}</td>
-                      <td style={{ fontWeight: 700, color: 'var(--success-text)' }}>{m.completedJobs}</td>
-                      <td>{m.activeJobs}</td>
-                      <td style={{ fontWeight: 800, color: 'var(--primary)' }}>
-                        Rs. {m.totalRevenueHandled.toLocaleString()}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      )}
+            )}
+          </div>
+        )}
+      </div>
 
       {/* Record Operating Expense Modal */}
       {isExpenseModalOpen && (

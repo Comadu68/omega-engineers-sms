@@ -1,4 +1,5 @@
 const dbHelper = require('../../database/db.cjs')
+const { normalizeSriLankanPhone } = require('../utils/phoneUtils.cjs')
 
 /**
  * Strict parser for numeric inputs.
@@ -107,7 +108,8 @@ const list = ({ search = '', category = null, lowStockOnly = false } = {}) => {
            COUNT(DISTINCT CASE WHEN b.remaining_qty > 0 THEN b.id END) AS activeBatchesCount,
            COALESCE(SUM(b.remaining_qty * b.unit_cost) / NULLIF(SUM(b.remaining_qty), 0), 0) AS weightedUnitCost,
            COALESCE(SUM(b.remaining_qty * b.unit_cost), 0) AS totalCostValuation,
-           s.name AS defaultSupplierName
+           s.name AS defaultSupplierName,
+           s.phone AS defaultSupplierPhone
     FROM inventory_items i
     LEFT JOIN inventory_batches b ON b.inventory_item_id = i.id
     LEFT JOIN suppliers s ON s.id = i.default_supplier_id
@@ -139,10 +141,19 @@ const list = ({ search = '', category = null, lowStockOnly = false } = {}) => {
   sql += ' ORDER BY i.name ASC'
 
   const items = dbHelper.queryAll(sql, params)
-  return items.map((item) => ({
-    ...item,
-    isLowStock: item.totalStock <= item.minimumStockLevel
-  }))
+  return items.map((item) => {
+    const isLowStock = item.totalStock <= item.minimumStockLevel
+    const shortfallQty = Math.max(0, (item.minimumStockLevel || 0) - (item.totalStock || 0))
+    const recommendedReorderQty = isLowStock
+      ? Math.max((item.minimumStockLevel || 1) * 2 - (item.totalStock || 0), item.minimumStockLevel || 1, 1)
+      : 0
+    return {
+      ...item,
+      isLowStock,
+      shortfallQty,
+      recommendedReorderQty
+    }
+  })
 }
 
 const get = (id) => {
@@ -548,17 +559,165 @@ const getSummary = () => {
   }
 }
 
-const getSuppliers = () => {
-  return dbHelper.queryAll('SELECT * FROM suppliers ORDER BY name ASC')
+const getSuppliers = ({ includeInactive = false } = {}) => {
+  const whereClause = includeInactive ? '' : 'WHERE s.is_active = 1'
+  return dbHelper.queryAll(
+    `SELECT s.*,
+            COUNT(DISTINCT b.id) AS batchesCount,
+            COALESCE(SUM(b.received_qty * b.unit_cost), 0) AS totalPurchasesValue,
+            MAX(b.received_at) AS lastPurchaseDate
+     FROM suppliers s
+     LEFT JOIN inventory_batches b ON b.supplier_id = s.id
+     ${whereClause}
+     GROUP BY s.id
+     ORDER BY s.is_active DESC, s.name ASC`
+  )
 }
 
-const createSupplier = ({ name, phone = '', address = '', notes = '' }) => {
-  if (!name) throw new Error('Supplier name is required.')
+const createSupplier = ({ name, phone = '', address = '', notes = '' } = {}) => {
+  if (!name || typeof name !== 'string' || !name.trim()) {
+    throw new Error('Supplier name is required.')
+  }
+  const cleanName = name.trim()
+
+  const dup = dbHelper.queryOne('SELECT id FROM suppliers WHERE LOWER(name) = LOWER(?)', [cleanName])
+  if (dup) {
+    throw new Error(`Supplier "${cleanName}" already exists.`)
+  }
+
+  let cleanPhone = ''
+  if (phone && typeof phone === 'string' && phone.trim()) {
+    const normalized = normalizeSriLankanPhone(phone)
+    if (!normalized) {
+      throw new Error(
+        'Invalid supplier phone number. Please enter a valid 10-digit Sri Lankan phone number (e.g., 011 234 5678 or 077 123 4567).'
+      )
+    }
+    cleanPhone = normalized
+  }
+
   const res = dbHelper.runSql(
     'INSERT INTO suppliers (name, phone, address, notes) VALUES (?, ?, ?, ?)',
-    [name.trim(), phone.trim(), address.trim(), notes.trim()]
+    [
+      cleanName,
+      cleanPhone,
+      typeof address === 'string' ? address.trim() : '',
+      typeof notes === 'string' ? notes.trim() : ''
+    ]
   )
   return dbHelper.queryOne('SELECT * FROM suppliers WHERE id = ?', [res.lastInsertRowid])
+}
+
+const updateSupplier = (id, data = {}) => {
+  if (!id) throw new Error('Supplier ID is required.')
+  const existing = dbHelper.queryOne('SELECT * FROM suppliers WHERE id = ?', [id])
+  if (!existing) throw new Error('Supplier not found.')
+
+  let cleanName = existing.name
+  if (data.name !== undefined) {
+    if (typeof data.name !== 'string' || !data.name.trim()) {
+      throw new Error('Supplier name cannot be empty.')
+    }
+    cleanName = data.name.trim()
+    const dup = dbHelper.queryOne(
+      'SELECT id FROM suppliers WHERE LOWER(name) = LOWER(?) AND id != ?',
+      [cleanName, id]
+    )
+    if (dup) {
+      throw new Error(`Supplier "${cleanName}" already exists.`)
+    }
+  }
+
+  let cleanPhone = existing.phone || ''
+  if (data.phone !== undefined) {
+    if (data.phone && typeof data.phone === 'string' && data.phone.trim()) {
+      const normalized = normalizeSriLankanPhone(data.phone)
+      if (!normalized) {
+        throw new Error(
+          'Invalid supplier phone number. Please enter a valid 10-digit Sri Lankan phone number (e.g., 011 234 5678 or 077 123 4567).'
+        )
+      }
+      cleanPhone = normalized
+    } else {
+      cleanPhone = ''
+    }
+  }
+
+  const cleanAddress = data.address !== undefined ? String(data.address || '').trim() : (existing.address || '')
+  const cleanNotes = data.notes !== undefined ? String(data.notes || '').trim() : (existing.notes || '')
+  const cleanIsActive = data.isActive !== undefined ? (data.isActive ? 1 : 0) : existing.is_active
+
+  dbHelper.runSql(
+    `UPDATE suppliers
+     SET name = ?, phone = ?, address = ?, notes = ?, is_active = ?
+     WHERE id = ?`,
+    [cleanName, cleanPhone, cleanAddress, cleanNotes, cleanIsActive, id]
+  )
+
+  return dbHelper.queryOne('SELECT * FROM suppliers WHERE id = ?', [id])
+}
+
+const deactivateSupplier = (id, isActive = 0) => {
+  if (!id) throw new Error('Supplier ID is required.')
+  const existing = dbHelper.queryOne('SELECT * FROM suppliers WHERE id = ?', [id])
+  if (!existing) throw new Error('Supplier not found.')
+
+  const activeFlag = isActive ? 1 : 0
+  dbHelper.runSql('UPDATE suppliers SET is_active = ? WHERE id = ?', [activeFlag, id])
+  return dbHelper.queryOne('SELECT * FROM suppliers WHERE id = ?', [id])
+}
+
+const getPurchaseBatches = ({ supplierId = null, search = '', dateFrom = null, dateTo = null } = {}) => {
+  let sql = `
+    SELECT b.id, b.batch_no AS batchNo, b.inventory_item_id AS inventoryItemId,
+           i.sku AS itemSku, i.name AS itemName, i.category AS itemCategory,
+           b.supplier_id AS supplierId, COALESCE(s.name, 'Direct / Unspecified') AS supplierName,
+           s.phone AS supplierPhone,
+           b.supplier_document_no AS supplierDocumentNo,
+           b.received_at AS receivedAt,
+           b.received_qty AS receivedQty,
+           b.remaining_qty AS remainingQty,
+           b.unit_cost AS unitCost,
+           (b.received_qty * b.unit_cost) AS totalCost,
+           b.expiry_date AS expiryDate,
+           b.notes, b.created_at AS createdAt
+    FROM inventory_batches b
+    JOIN inventory_items i ON i.id = b.inventory_item_id
+    LEFT JOIN suppliers s ON s.id = b.supplier_id
+  `
+  const conditions = []
+  const params = []
+
+  if (supplierId) {
+    conditions.push('b.supplier_id = ?')
+    params.push(Number(supplierId))
+  }
+
+  if (search && typeof search === 'string' && search.trim()) {
+    const term = `%${search.trim()}%`
+    conditions.push(
+      '(b.batch_no LIKE ? OR b.supplier_document_no LIKE ? OR i.name LIKE ? OR i.sku LIKE ? OR s.name LIKE ?)'
+    )
+    params.push(term, term, term, term, term)
+  }
+
+  if (dateFrom && dateTo) {
+    conditions.push('date(b.received_at) BETWEEN date(?) AND date(?)')
+    params.push(dateFrom, dateTo)
+  } else if (dateFrom) {
+    conditions.push('date(b.received_at) >= date(?)')
+    params.push(dateFrom)
+  } else if (dateTo) {
+    conditions.push('date(b.received_at) <= date(?)')
+    params.push(dateTo)
+  }
+
+  if (conditions.length > 0) {
+    sql += ' WHERE ' + conditions.join(' AND ')
+  }
+
+  sql += ' ORDER BY b.received_at DESC, b.id DESC'
+  return dbHelper.queryAll(sql, params)
 }
 
 module.exports = {
@@ -571,5 +730,8 @@ module.exports = {
   restorePartQty,
   getSummary,
   getSuppliers,
-  createSupplier
+  createSupplier,
+  updateSupplier,
+  deactivateSupplier,
+  getPurchaseBatches
 }
