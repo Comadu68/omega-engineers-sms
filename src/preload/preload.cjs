@@ -74,8 +74,11 @@ contextBridge.exposeInMainWorld('omega', {
     updateItem: (id, data) => ipcRenderer.invoke('inventory:updateItem', { id, data }),
     receiveBatch: (data) => ipcRenderer.invoke('inventory:receiveBatch', data),
     getSummary: () => ipcRenderer.invoke('inventory:getSummary'),
-    getSuppliers: () => ipcRenderer.invoke('inventory:getSuppliers'),
-    createSupplier: (data) => ipcRenderer.invoke('inventory:createSupplier', data)
+    getSuppliers: (options) => ipcRenderer.invoke('inventory:getSuppliers', options),
+    createSupplier: (data) => ipcRenderer.invoke('inventory:createSupplier', data),
+    updateSupplier: (id, data) => ipcRenderer.invoke('inventory:updateSupplier', { id, data }),
+    deactivateSupplier: (id, isActive) => ipcRenderer.invoke('inventory:deactivateSupplier', { id, isActive }),
+    getPurchaseBatches: (filters) => ipcRenderer.invoke('inventory:getPurchaseBatches', filters)
   },
   invoices: {
     list: (filters) => ipcRenderer.invoke('invoices:list', filters),

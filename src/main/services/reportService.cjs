@@ -25,8 +25,16 @@ const dailySummary = (selectedDate = null) => {
   const partsRevenue = partsRevRow ? partsRevRow.partsRevenue : 0
   const partsCogs = partsRevRow ? partsRevRow.partsCogs : 0
 
-  // 3. Total Revenue
+  // 3. Total Revenue & Discounts
+  const discountRow = dbHelper.queryOne(
+    `SELECT COALESCE(SUM(discount), 0) AS totalDiscount
+     FROM invoices
+     WHERE date(issued_at) = ? AND payment_status != 'void'`,
+    [date]
+  )
+  const totalDiscount = discountRow ? discountRow.totalDiscount : 0
   const totalRevenue = serviceRevenue + partsRevenue
+  const netBilledRevenue = Math.max(0, totalRevenue - totalDiscount)
 
   // 4. Operating Expenses on date
   const expRow = dbHelper.queryOne(
@@ -108,6 +116,8 @@ const dailySummary = (selectedDate = null) => {
     date,
     serviceRevenue,
     partsRevenue,
+    totalDiscount,
+    netBilledRevenue,
     totalRevenue,
     partsCogs,
     grossProfit,
@@ -121,6 +131,10 @@ const dailySummary = (selectedDate = null) => {
 }
 
 const jobCardsReport = ({ dateFrom = null, dateTo = null, mechanicId = null, status = null } = {}) => {
+  if (dateFrom && dateTo && dateFrom > dateTo) {
+    throw new Error('Start date (From) cannot be later than End date (To).')
+  }
+
   let sql = `
     SELECT j.id, j.job_no AS jobNo, j.status, j.opened_at AS openedAt,
            j.completed_at AS completedAt, j.cancelled_at AS cancelledAt,
@@ -132,7 +146,7 @@ const jobCardsReport = ({ dateFrom = null, dateTo = null, mechanicId = null, sta
     JOIN vehicles v ON v.id = j.vehicle_id
     LEFT JOIN job_assignments ja ON ja.job_card_id = j.id AND ja.unassigned_at IS NULL
     LEFT JOIN mechanics m ON m.id = ja.mechanic_id
-    LEFT JOIN invoices inv ON inv.job_card_id = j.id
+    LEFT JOIN invoices inv ON inv.job_card_id = j.id AND inv.payment_status != 'void'
   `
   const conditions = []
   const params = []
@@ -146,13 +160,13 @@ const jobCardsReport = ({ dateFrom = null, dateTo = null, mechanicId = null, sta
     params.push(mechanicId)
   }
   if (dateFrom && dateTo) {
-    conditions.push('date(j.opened_at) BETWEEN ? AND ?')
+    conditions.push('date(j.opened_at) BETWEEN date(?) AND date(?)')
     params.push(dateFrom, dateTo)
   } else if (dateFrom) {
-    conditions.push('date(j.opened_at) >= ?')
+    conditions.push('date(j.opened_at) >= date(?)')
     params.push(dateFrom)
   } else if (dateTo) {
-    conditions.push('date(j.opened_at) <= ?')
+    conditions.push('date(j.opened_at) <= date(?)')
     params.push(dateTo)
   }
 
@@ -176,6 +190,10 @@ const jobCardsReport = ({ dateFrom = null, dateTo = null, mechanicId = null, sta
 }
 
 const salesReport = ({ dateFrom = null, dateTo = null } = {}) => {
+  if (dateFrom && dateTo && dateFrom > dateTo) {
+    throw new Error('Start date (From) cannot be later than End date (To).')
+  }
+
   let sql = `
     SELECT inv.id, inv.invoice_no AS invoiceNo, inv.issued_at AS issuedAt,
            inv.subtotal, inv.discount, inv.total, inv.payment_status AS paymentStatus,
@@ -188,18 +206,28 @@ const salesReport = ({ dateFrom = null, dateTo = null } = {}) => {
   `
   const params = []
   if (dateFrom && dateTo) {
-    sql += ' AND date(inv.issued_at) BETWEEN ? AND ?'
+    sql += ' AND date(inv.issued_at) BETWEEN date(?) AND date(?)'
     params.push(dateFrom, dateTo)
+  } else if (dateFrom) {
+    sql += ' AND date(inv.issued_at) >= date(?)'
+    params.push(dateFrom)
+  } else if (dateTo) {
+    sql += ' AND date(inv.issued_at) <= date(?)'
+    params.push(dateTo)
   }
 
   sql += ' ORDER BY inv.issued_at DESC'
   const rows = dbHelper.queryAll(sql, params)
 
+  const totalSubtotal = rows.reduce((sum, r) => sum + (r.subtotal || 0), 0)
+  const totalDiscount = rows.reduce((sum, r) => sum + (r.discount || 0), 0)
   const totalSales = rows.reduce((sum, r) => sum + r.total, 0)
   const totalCogs = rows.reduce((sum, r) => sum + r.partsCogs, 0)
   const grossProfit = totalSales - totalCogs
 
   return {
+    totalSubtotal,
+    totalDiscount,
     totalSales,
     totalCogs,
     grossProfit,
@@ -235,11 +263,21 @@ const inventoryReport = () => {
 }
 
 const mechanicPerformanceReport = ({ dateFrom = null, dateTo = null } = {}) => {
+  if (dateFrom && dateTo && dateFrom > dateTo) {
+    throw new Error('Start date (From) cannot be later than End date (To).')
+  }
+
   let dateFilter = ''
   const params = []
   if (dateFrom && dateTo) {
-    dateFilter = 'AND date(j.opened_at) BETWEEN ? AND ?'
+    dateFilter = 'AND date(j.opened_at) BETWEEN date(?) AND date(?)'
     params.push(dateFrom, dateTo)
+  } else if (dateFrom) {
+    dateFilter = 'AND date(j.opened_at) >= date(?)'
+    params.push(dateFrom)
+  } else if (dateTo) {
+    dateFilter = 'AND date(j.opened_at) <= date(?)'
+    params.push(dateTo)
   }
 
   const sql = `
@@ -249,9 +287,13 @@ const mechanicPerformanceReport = ({ dateFrom = null, dateTo = null } = {}) => {
            COUNT(DISTINCT CASE WHEN j.status IN ('pending', 'in_progress') THEN j.id END) AS activeJobs,
            COALESCE(SUM(CASE WHEN j.status = 'completed' THEN inv.total END), 0) AS totalRevenueHandled
     FROM mechanics m
-    LEFT JOIN job_assignments ja ON ja.mechanic_id = m.id
-    LEFT JOIN job_cards j ON j.id = ja.job_card_id ${dateFilter}
-    LEFT JOIN invoices inv ON inv.job_card_id = j.id
+    LEFT JOIN (
+      SELECT DISTINCT job_card_id, mechanic_id
+      FROM job_assignments
+      WHERE unassigned_at IS NULL
+    ) ja ON ja.mechanic_id = m.id
+    LEFT JOIN job_cards j ON j.id = ja.job_card_id AND j.status != 'cancelled' ${dateFilter}
+    LEFT JOIN invoices inv ON inv.job_card_id = j.id AND inv.payment_status != 'void'
     WHERE m.is_active = 1
     GROUP BY m.id
     ORDER BY completedJobs DESC, m.name ASC

@@ -837,7 +837,7 @@ table.data-table tr:hover td {
   margin-top: 2px;
 }
 
-/* Printable Invoice & Sticker */
+/* Printable Invoice, 80mm POS Thermal Receipt, Sticker & Reports */
 .invoice-paper {
   background: #FFFFFF;
   border: 1px solid var(--border-color);
@@ -846,6 +846,31 @@ table.data-table tr:hover td {
   max-width: 840px;
   margin: 0 auto;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
+}
+
+.pos-receipt-paper {
+  background: #FFFFFF;
+  border: 1px dashed #6B778C;
+  border-radius: 4px;
+  padding: 18px 16px;
+  width: 302px;
+  max-width: 100%;
+  margin: 0 auto;
+  font-family: "Consolas", "Courier New", monospace;
+  color: #000000;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+}
+
+.pos-divider {
+  border-top: 1px dashed #000000;
+  margin: 8px 0;
+}
+
+.print-only-header {
+  display: none;
+  margin-bottom: 18px;
+  padding-bottom: 12px;
+  border-bottom: 2px solid #152033;
 }
 
 .perforated-cut-line {
@@ -908,9 +933,18 @@ table.data-table tr:hover td {
   body * {
     visibility: hidden;
   }
-  .invoice-paper, .invoice-paper * {
+  .print-target,
+  .print-target *,
+  .invoice-paper,
+  .invoice-paper *,
+  .pos-receipt-paper,
+  .pos-receipt-paper * {
     visibility: visible;
   }
+  .print-only-header {
+    display: block !important;
+  }
+  .print-target,
   .invoice-paper {
     position: absolute;
     left: 0;
@@ -919,6 +953,17 @@ table.data-table tr:hover td {
     border: none;
     box-shadow: none;
     padding: 0;
+  }
+  .pos-receipt-paper {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 80mm;
+    max-width: 80mm;
+    border: none;
+    box-shadow: none;
+    padding: 4mm;
+    margin: 0;
   }
   .no-print {
     display: none !important;
