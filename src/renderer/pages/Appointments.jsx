@@ -281,25 +281,38 @@ export const Appointments = ({ onOpenJobCardWithDetails }) => {
               const isSelected = selectedDate === dayStr
               const isToday = todayStr === dayStr
 
-              let stateClass = 'state-available'
-              let stateText = 'Free'
+              const maxCapacity = dayInfo?.maxCapacity || monthAvailability.maxCapacity || 8
+              const bookedCount = dayInfo?.bookedCount || 0
+              const availableSlots = Math.max(0, maxCapacity - bookedCount)
+              const percent = maxCapacity > 0 ? Math.min(100, Math.round((bookedCount / maxCapacity) * 100)) : 0
 
-              if (dayInfo) {
-                if (dayInfo.status === 'full') {
-                  stateClass = 'state-full'
-                  stateText = 'Full'
-                } else if (dayInfo.status === 'limited') {
-                  stateClass = 'state-limited'
-                  stateText = `${dayInfo.bookedCount}/${dayInfo.maxCapacity}`
-                } else if (dayInfo.bookedCount > 0) {
-                  stateText = `${dayInfo.bookedCount}/${dayInfo.maxCapacity}`
-                }
+              let stateClass = 'state-free'
+              let stateText = 'Free'
+              let progressClass = ''
+              let tooltip = `📅 ${dayStr} • 0/${maxCapacity} booked • All ${maxCapacity} slots free`
+
+              if (bookedCount >= maxCapacity || dayInfo?.status === 'full') {
+                stateClass = 'state-full'
+                stateText = 'Full'
+                progressClass = 'progress-full'
+                tooltip = `📅 ${dayStr} • ${bookedCount}/${maxCapacity} booked • Full capacity (0 slots left)`
+              } else if (bookedCount >= Math.ceil(maxCapacity / 2) || dayInfo?.status === 'limited') {
+                stateClass = 'state-limited'
+                stateText = `${availableSlots} left`
+                progressClass = 'progress-limited'
+                tooltip = `📅 ${dayStr} • ${bookedCount}/${maxCapacity} booked • ${availableSlots} slot${availableSlots === 1 ? '' : 's'} left`
+              } else if (bookedCount > 0) {
+                stateClass = 'state-available'
+                stateText = `${availableSlots} left`
+                progressClass = 'progress-available'
+                tooltip = `📅 ${dayStr} • ${bookedCount}/${maxCapacity} booked • ${availableSlots} slot${availableSlots === 1 ? '' : 's'} left`
               }
 
               return (
                 <div
                   key={dayStr}
                   className={`calendar-day-cell ${stateClass} ${isSelected ? 'selected' : ''} ${isToday ? 'today' : ''}`}
+                  title={tooltip}
                   onClick={() => {
                     setSelectedDate(dayStr)
                     setActiveFilter('date')
@@ -307,6 +320,14 @@ export const Appointments = ({ onOpenJobCardWithDetails }) => {
                 >
                   <span className="calendar-day-num">{day}</span>
                   <span className="calendar-day-status-pill">{stateText}</span>
+                  {bookedCount > 0 && (
+                    <div className="calendar-day-progress">
+                      <div
+                        className={`calendar-day-progress-bar ${progressClass}`}
+                        style={{ width: `${percent}%` }}
+                      />
+                    </div>
+                  )}
                 </div>
               )
             })}
@@ -315,8 +336,9 @@ export const Appointments = ({ onOpenJobCardWithDetails }) => {
           {/* Calendar Status Legend */}
           <div
             style={{
-              display: 'flex',
-              justifyContent: 'space-between',
+              display: 'grid',
+              gridTemplateColumns: 'repeat(4, 1fr)',
+              gap: '4px',
               alignItems: 'center',
               marginTop: '16px',
               paddingTop: '12px',
@@ -326,16 +348,20 @@ export const Appointments = ({ onOpenJobCardWithDetails }) => {
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-              <span style={{ width: '10px', height: '10px', borderRadius: '3px', background: 'var(--success)' }} />
+              <span style={{ width: '8px', height: '8px', borderRadius: '2px', background: '#FFFFFF', border: '1px solid var(--border-color)' }} />
+              <span>Free</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <span style={{ width: '8px', height: '8px', borderRadius: '2px', background: 'var(--success)' }} />
               <span>Available</span>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-              <span style={{ width: '10px', height: '10px', borderRadius: '3px', background: 'var(--warning)' }} />
+              <span style={{ width: '8px', height: '8px', borderRadius: '2px', background: 'var(--warning)' }} />
               <span>Limited</span>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-              <span style={{ width: '10px', height: '10px', borderRadius: '3px', background: 'var(--danger)' }} />
-              <span>Full Capacity</span>
+              <span style={{ width: '8px', height: '8px', borderRadius: '2px', background: 'var(--danger)' }} />
+              <span>Full</span>
             </div>
           </div>
 

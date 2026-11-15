@@ -785,6 +785,7 @@ table.data-table tr:hover td {
   position: relative;
   transition: all 0.15s ease;
   padding: 4px;
+  overflow: hidden;
 }
 
 .calendar-day-cell:hover {
@@ -806,6 +807,17 @@ table.data-table tr:hover td {
 .calendar-day-cell.today {
   border: 2px solid var(--text-main);
   font-weight: 700;
+}
+
+.calendar-day-cell.state-free {
+  background: #FFFFFF;
+  border-color: var(--border-color);
+  color: var(--text-main);
+}
+
+.calendar-day-cell.state-free .calendar-day-status-pill {
+  color: var(--text-light);
+  font-weight: 600;
 }
 
 .calendar-day-cell.state-available {
@@ -835,6 +847,33 @@ table.data-table tr:hover td {
   font-size: 9px;
   font-weight: 700;
   margin-top: 2px;
+}
+
+.calendar-day-progress {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: rgba(0, 0, 0, 0.08);
+  overflow: hidden;
+}
+
+.calendar-day-progress-bar {
+  height: 100%;
+  transition: width 0.3s ease;
+}
+
+.calendar-day-progress-bar.progress-available {
+  background: var(--success);
+}
+
+.calendar-day-progress-bar.progress-limited {
+  background: var(--warning);
+}
+
+.calendar-day-progress-bar.progress-full {
+  background: var(--danger);
 }
 
 /* Printable Invoice & Sticker */
