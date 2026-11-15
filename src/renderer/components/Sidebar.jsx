@@ -1,4 +1,5 @@
 import React from 'react'
+import { canAccessModule } from '../utils/permissions'
 
 export const NAV_ITEMS = [
   { id: 'dashboard', label: 'Dashboard', icon: '📊' },
@@ -25,8 +26,14 @@ export const Sidebar = ({ activeTab, onSelectTab, currentUser, onLogout }) => {
 
   const formatRole = (role) => {
     if (!role) return ''
-    return role.replace(/_/g, ' ')
+    return role
+      .split('_')
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+      .join(' ')
   }
+
+  const userRole = currentUser?.role || ''
+  const visibleNavItems = NAV_ITEMS.filter((item) => canAccessModule(userRole, item.id))
 
   return (
     <aside className="sidebar">
@@ -49,7 +56,7 @@ export const Sidebar = ({ activeTab, onSelectTab, currentUser, onLogout }) => {
       </div>
 
       <nav>
-        {NAV_ITEMS.map((item) => (
+        {visibleNavItems.map((item) => (
           <button
             key={item.id}
             type="button"

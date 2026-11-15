@@ -171,7 +171,16 @@ const register = (customIpcMain = null) => {
     if (existingSession && existingSession.userId) {
       authService.recordLogoutAudit(existingSession.userId)
     }
+    authService.logout()
     return { success: true }
+  })
+
+  ipcMain.handle('auth:getCurrentUser', async (event) => {
+    try {
+      return requireAuthenticatedSession(event)
+    } catch (_) {
+      return authService.getCurrentUser()
+    }
   })
 
   ipcMain.handle('auth:getUsers', async (event) => {
@@ -198,6 +207,7 @@ const register = (customIpcMain = null) => {
       callerUserId: caller.id,
       currentPassword
     })
+  })
   })
 }
 

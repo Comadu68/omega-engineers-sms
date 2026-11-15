@@ -218,6 +218,11 @@ export const Settings = ({ currentUser, onDatabaseRestored }) => {
       return
     }
 
+    if (currentUser?.role !== 'admin_owner' && selectedUserForPassword?.id !== currentUser?.id) {
+      setFormError('You are only authorized to change your own password.')
+      return
+    }
+
     try {
       setIsSubmitting(true)
       await window.omega.auth.changePassword(
@@ -244,18 +249,54 @@ export const Settings = ({ currentUser, onDatabaseRestored }) => {
     return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`
   }
 
+  const isAdmin = currentUser?.role === 'admin_owner'
+
   return (
     <div className="content-scrollable">
       <div className="toolbar">
         <div>
-          <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 800 }}>System Settings &amp; Maintenance</h2>
+          <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 800 }}>
+            {isAdmin ? 'System Settings & Maintenance' : 'Account Settings'}
+          </h2>
           <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-            Service station configuration, automated database backups, user accounts, and security audit log.
+            {isAdmin
+              ? 'Service station configuration, automated database backups, user accounts, and security audit log.'
+              : 'View your account details and update your login password.'}
           </div>
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '20px' }}>
+      {!isAdmin ? (
+        <div style={{ maxWidth: '560px' }}>
+          <div className="card">
+            <div className="card-header">
+              <h3 className="card-title">My Account &amp; Password</h3>
+            </div>
+
+            <div style={{ marginBottom: '16px', padding: '14px', background: 'var(--bg-main)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)' }}>
+              <div style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-main)' }}>{currentUser?.displayName || 'User'}</div>
+              <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: '2px' }}>Username: <strong>{currentUser?.username}</strong></div>
+              <div style={{ fontSize: '12px', color: 'var(--primary)', fontWeight: 600, marginTop: '6px', textTransform: 'capitalize' }}>
+                Role: {currentUser?.role ? currentUser.role.replace(/_/g, ' ') : ''}
+              </div>
+            </div>
+
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={() => {
+                setFormError('')
+                setSelectedUserForPassword(currentUser)
+                setPasswordForm({ newPassword: '', confirmPassword: '' })
+                setIsPasswordModalOpen(true)
+              }}
+            >
+              🔑 Change My Password
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '20px' }}>
         {/* Left Column: Workshop Settings & Backups */}
         <div>
           {/* General Station Settings */}
@@ -585,7 +626,7 @@ export const Settings = ({ currentUser, onDatabaseRestored }) => {
             </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Add User Modal */}
       {isAdmin && isAddUserOpen && (
