@@ -9,6 +9,7 @@
     "dev:electron": "wait-on http://127.0.0.1:5173 && cross-env VITE_DEV_SERVER_URL=http://127.0.0.1:5173 electron .",
     "dev": "concurrently -k \"npm:dev:renderer\" \"npm:dev:electron\"",
     "build": "vite build",
+    "seed": "node scripts/seed_sample_data.cjs",
     "test": "node tests/integration.test.cjs",
     "dist": "npm run build && electron-builder --win nsis",
     "postinstall": "electron-builder install-app-deps"

@@ -5,6 +5,9 @@ release/
 .DS_Store
 Thumbs.db
 .env
+.env*
+*.local
+.local_data/
 *.db
 *.db-shm
 *.db-wal

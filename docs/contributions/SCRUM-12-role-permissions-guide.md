@@ -177,3 +177,19 @@ To mark `SCRUM-12` as **Done** in Jira:
 - [ ] Reports and Backup/Restore are strictly blocked for non-admin staff.
 - [ ] All tests in `tests/role-permissions.test.cjs` pass with 0 errors.
 - [ ] Pull request is created, reviewed by the team, and merged to `main`.
+
+---
+
+## 5. Antigravity Prompt (Copy-Paste for HH Friend)
+
+When your teammate HH opens Antigravity, they can paste the following prompt:
+
+```text
+Please read the guide at docs/contributions/SCRUM-12-role-permissions-guide.md and implement SCRUM-12 (US-UM-03: Configure role permissions by module).
+1. Create src/renderer/utils/permissions.js with the role matrix.
+2. Filter the navigation tabs in src/renderer/components/Sidebar.jsx.
+3. Add route guards in src/renderer/App.jsx so restricted modules cannot be opened.
+4. Protect sensitive IPC handlers (reports, backup) in src/main/ipc/.
+5. Add and run automated tests in tests/role-permissions.test.cjs.
+Do not break any existing functionality.
+```

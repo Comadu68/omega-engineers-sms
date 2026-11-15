@@ -40,12 +40,38 @@ function createWindow() {
 
   const devUrl = process.env.VITE_DEV_SERVER_URL
   if (devUrl) {
-    mainWindow.loadURL(devUrl)
+    const loadDevUrl = () => {
+      if (!mainWindow || mainWindow.isDestroyed()) return
+      mainWindow.loadURL(devUrl).catch(() => {
+        setTimeout(loadDevUrl, 800)
+      })
+    }
+    loadDevUrl()
+    mainWindow.webContents.on('did-fail-load', () => {
+      setTimeout(() => {
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.loadURL(devUrl).catch(() => {})
+        }
+      }, 1000)
+    })
   } else {
     mainWindow.loadFile(path.join(__dirname, '..', '..', 'dist', 'index.html'))
   }
 
-  mainWindow.once('ready-to-show', () => mainWindow.show())
+  mainWindow.once('ready-to-show', () => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.show()
+      mainWindow.focus()
+    }
+  })
+
+  // Fallback to guarantee window is visible on desktop even if ready-to-show event is delayed
+  setTimeout(() => {
+    if (mainWindow && !mainWindow.isDestroyed() && !mainWindow.isVisible()) {
+      mainWindow.show()
+      mainWindow.focus()
+    }
+  }, 1500)
 }
 
 function registerBootstrapIpc() {

@@ -18,6 +18,7 @@ export default function App() {
   const [isFirstRun, setIsFirstRun] = useState(null)
   const [currentUser, setCurrentUser] = useState(null)
   const [activeTab, setActiveTab] = useState('dashboard')
+  const [isDesktopEnvironment, setIsDesktopEnvironment] = useState(true)
 
   // Cross-screen contextual state
   const [jobCardPrefill, setJobCardPrefill] = useState(null)
@@ -26,6 +27,11 @@ export default function App() {
   const [inventoryPrefillReceive, setInventoryPrefillReceive] = useState(null)
 
   const checkInitialStatus = async () => {
+    if (!window.omega || !window.omega.auth) {
+      setIsDesktopEnvironment(false)
+      setIsFirstRun(false)
+      return
+    }
     try {
       const firstRun = await window.omega.auth.isFirstRun()
       setIsFirstRun(firstRun)

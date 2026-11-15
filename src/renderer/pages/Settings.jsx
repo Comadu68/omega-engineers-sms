@@ -249,8 +249,6 @@ export const Settings = ({ currentUser, onDatabaseRestored }) => {
     return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`
   }
 
-  const isAdmin = currentUser?.role === 'admin_owner'
-
   return (
     <div className="content-scrollable">
       <div className="toolbar">
@@ -625,6 +623,7 @@ export const Settings = ({ currentUser, onDatabaseRestored }) => {
               )}
             </div>
           </div>
+        </div>
         </div>
       )}
 

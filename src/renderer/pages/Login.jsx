@@ -65,6 +65,25 @@ export const Login = ({ onLoginSuccess }) => {
           </div>
         </div>
 
+        {window.omega?.isBrowserDevMode && (
+          <div
+            style={{
+              background: '#ECFDF5',
+              color: '#065F46',
+              border: '1px solid #A7F3D0',
+              borderRadius: '8px',
+              padding: '8px 12px',
+              fontSize: '11px',
+              fontWeight: 600,
+              lineHeight: '1.4',
+              marginBottom: '16px',
+              textAlign: 'center'
+            }}
+          >
+            ⚡ Browser Dev Mode Active (Connected to local SQLite)
+          </div>
+        )}
+
         {error && (
           <div
             style={{
