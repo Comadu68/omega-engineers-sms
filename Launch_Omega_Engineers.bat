@@ -2,9 +2,12 @@
 title Omega Engineers Service Station
 cd /d "%~dp0"
 
+set "INSTALLED_EXE=%LOCALAPPDATA%\Programs\Omega Engineers Service Station\Omega Engineers Service Station.exe"
 set "EXE_PATH=D:\Omega_Engineers_Desktop_App_Antigravity_Pack\release\win-unpacked\Omega Engineers Service Station.exe"
 
-if exist "%EXE_PATH%" (
+if exist "%INSTALLED_EXE%" (
+    start "" "%INSTALLED_EXE%"
+) else if exist "%EXE_PATH%" (
     start "" "%EXE_PATH%"
 ) else if exist "%~dp0release\win-unpacked\Omega Engineers Service Station.exe" (
     start "" "%~dp0release\win-unpacked\Omega Engineers Service Station.exe"

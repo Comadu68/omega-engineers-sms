@@ -62,6 +62,18 @@ export const Inventory = ({ prefillReceiveItem = null }) => {
   const [formError, setFormError] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
 
+  // Quick-Add Supplier State
+  const [isAddSupplierOpen, setIsAddSupplierOpen] = useState(false)
+  const [supplierTargetContext, setSupplierTargetContext] = useState(null)
+  const [supplierForm, setSupplierForm] = useState({
+    name: '',
+    phone: '',
+    address: '',
+    notes: ''
+  })
+  const [supplierFormError, setSupplierFormError] = useState('')
+  const [isSupplierSubmitting, setIsSupplierSubmitting] = useState(false)
+
   const loadInventory = async () => {
     try {
       setLoading(true)
@@ -301,6 +313,47 @@ export const Inventory = ({ prefillReceiveItem = null }) => {
     }
   }
 
+  const handleCreateSupplier = async (e) => {
+    if (e && typeof e.preventDefault === 'function') {
+      e.preventDefault()
+    }
+    setSupplierFormError('')
+    const trimmedName = supplierForm.name.trim()
+    if (!trimmedName) {
+      setSupplierFormError('Supplier / Vendor name is required.')
+      return
+    }
+
+    try {
+      setIsSupplierSubmitting(true)
+      const created = await window.omega.inventory.createSupplier({
+        name: trimmedName,
+        phone: supplierForm.phone.trim(),
+        address: supplierForm.address.trim(),
+        notes: supplierForm.notes.trim()
+      })
+
+      const updatedSuppliers = await window.omega.inventory.getSuppliers()
+      setSuppliers(updatedSuppliers)
+
+      if (created && created.id) {
+        if (supplierTargetContext === 'itemForm' || supplierTargetContext === 'editItem') {
+          setItemForm((prev) => ({ ...prev, defaultSupplierId: String(created.id) }))
+        } else if (supplierTargetContext === 'batchForm') {
+          setBatchForm((prev) => ({ ...prev, supplierId: String(created.id) }))
+        }
+      }
+
+      setIsAddSupplierOpen(false)
+      setSupplierForm({ name: '', phone: '', address: '', notes: '' })
+      setSupplierTargetContext(null)
+    } catch (err) {
+      setSupplierFormError(err.message || 'Failed to add supplier.')
+    } finally {
+      setIsSupplierSubmitting(false)
+    }
+  }
+
   return (
     <div className="content-scrollable">
       {/* KPI Cards Row */}
@@ -371,7 +424,19 @@ export const Inventory = ({ prefillReceiveItem = null }) => {
           </button>
         </div>
 
-        <div style={{ display: 'flex', gap: '8px' }}>
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+          <button
+            type="button"
+            className="btn btn-secondary"
+            onClick={() => {
+              setSupplierFormError('')
+              setSupplierForm({ name: '', phone: '', address: '', notes: '' })
+              setSupplierTargetContext(null)
+              setIsAddSupplierOpen(true)
+            }}
+          >
+            🏢 + Add Supplier
+          </button>
           <button
             type="button"
             className="btn btn-secondary"
@@ -677,7 +742,29 @@ export const Inventory = ({ prefillReceiveItem = null }) => {
               </div>
 
               <div className="form-group">
-                <label className="form-label">Default Supplier</label>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                  <label className="form-label" style={{ margin: 0 }}>Default Supplier</label>
+                  <button
+                    type="button"
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: 'var(--primary, #2563EB)',
+                      fontSize: '12px',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      padding: 0
+                    }}
+                    onClick={() => {
+                      setSupplierFormError('')
+                      setSupplierForm({ name: '', phone: '', address: '', notes: '' })
+                      setSupplierTargetContext('itemForm')
+                      setIsAddSupplierOpen(true)
+                    }}
+                  >
+                    + New Supplier
+                  </button>
+                </div>
                 <select
                   className="form-select"
                   value={itemForm.defaultSupplierId}
@@ -840,7 +927,29 @@ export const Inventory = ({ prefillReceiveItem = null }) => {
                 />
               </div>
               <div className="form-group">
-                <label className="form-label">Supplier</label>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                  <label className="form-label" style={{ margin: 0 }}>Supplier</label>
+                  <button
+                    type="button"
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: 'var(--primary, #2563EB)',
+                      fontSize: '12px',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      padding: 0
+                    }}
+                    onClick={() => {
+                      setSupplierFormError('')
+                      setSupplierForm({ name: '', phone: '', address: '', notes: '' })
+                      setSupplierTargetContext('batchForm')
+                      setIsAddSupplierOpen(true)
+                    }}
+                  >
+                    + New Supplier
+                  </button>
+                </div>
                 <select
                   className="form-select"
                   value={batchForm.supplierId}
@@ -950,6 +1059,44 @@ export const Inventory = ({ prefillReceiveItem = null }) => {
               </div>
 
               <div className="form-group">
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                  <label className="form-label" style={{ margin: 0 }}>Default Supplier</label>
+                  <button
+                    type="button"
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: 'var(--primary, #2563EB)',
+                      fontSize: '12px',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      padding: 0
+                    }}
+                    onClick={() => {
+                      setSupplierFormError('')
+                      setSupplierForm({ name: '', phone: '', address: '', notes: '' })
+                      setSupplierTargetContext('editItem')
+                      setIsAddSupplierOpen(true)
+                    }}
+                  >
+                    + New Supplier
+                  </button>
+                </div>
+                <select
+                  className="form-select"
+                  value={itemForm.defaultSupplierId}
+                  onChange={(e) => setItemForm({ ...itemForm, defaultSupplierId: e.target.value })}
+                >
+                  <option value="">-- None / Select Supplier --</option>
+                  {suppliers.map((s) => (
+                    <option key={s.id} value={s.id}>{s.name}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div className="form-row">
+              <div className="form-group">
                 <label className="form-label">Selling Price (Rs.)</label>
                 <input
                   type="number"
@@ -960,15 +1107,102 @@ export const Inventory = ({ prefillReceiveItem = null }) => {
                   required
                 />
               </div>
+
+              <div className="form-group">
+                <label className="form-label">Reorder Level (Low Stock Alert)</label>
+                <input
+                  type="number"
+                  className="form-input"
+                  value={itemForm.minimumStockLevel}
+                  onChange={(e) => setItemForm({ ...itemForm, minimumStockLevel: e.target.value })}
+                />
+              </div>
+            </div>
+          </form>
+        </Modal>
+      )}
+
+      {/* Add New Supplier Quick Modal */}
+      {isAddSupplierOpen && (
+        <Modal
+          isOpen={true}
+          title="Add New Parts Supplier"
+          onClose={() => setIsAddSupplierOpen(false)}
+          footer={
+            <>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => setIsAddSupplierOpen(false)}
+                disabled={isSupplierSubmitting}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={handleCreateSupplier}
+                disabled={isSupplierSubmitting}
+              >
+                {isSupplierSubmitting ? 'Saving...' : 'Save Supplier'}
+              </button>
+            </>
+          }
+        >
+          {supplierFormError && (
+            <div style={{ background: 'var(--danger-bg)', color: 'var(--danger-text)', padding: '10px', borderRadius: '6px', fontSize: '12px', marginBottom: '14px' }}>
+              {supplierFormError}
+            </div>
+          )}
+
+          <form onSubmit={handleCreateSupplier}>
+            <div className="form-group">
+              <label className="form-label">
+                Supplier / Vendor Name <span className="req">*</span>
+              </label>
+              <input
+                type="text"
+                className="form-input"
+                value={supplierForm.name}
+                onChange={(e) => setSupplierForm({ ...supplierForm, name: e.target.value })}
+                placeholder="e.g. Dimo Lanka Auto Parts, United Motors"
+                required
+                autoFocus
+              />
+            </div>
+
+            <div className="form-row">
+              <div className="form-group">
+                <label className="form-label">Contact Phone</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  value={supplierForm.phone}
+                  onChange={(e) => setSupplierForm({ ...supplierForm, phone: e.target.value })}
+                  placeholder="e.g. 011 234 5678"
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Address / Location</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  value={supplierForm.address}
+                  onChange={(e) => setSupplierForm({ ...supplierForm, address: e.target.value })}
+                  placeholder="e.g. Panchikawatta, Colombo 10"
+                />
+              </div>
             </div>
 
             <div className="form-group">
-              <label className="form-label">Reorder Level (Low Stock Alert)</label>
-              <input
-                type="number"
+              <label className="form-label">Notes (Optional)</label>
+              <textarea
                 className="form-input"
-                value={itemForm.minimumStockLevel}
-                onChange={(e) => setItemForm({ ...itemForm, minimumStockLevel: e.target.value })}
+                rows="2"
+                value={supplierForm.notes}
+                onChange={(e) => setSupplierForm({ ...supplierForm, notes: e.target.value })}
+                placeholder="e.g. Supplies genuine Toyota & Nissan filters with 30-day credit term"
               />
             </div>
           </form>
