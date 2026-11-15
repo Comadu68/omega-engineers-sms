@@ -4,19 +4,29 @@ import { Badge } from '../components/Badge'
 
 export const fetchSettingsScreenData = async (omegaApi = window.omega, currentUser = null) => {
   const isAdmin = currentUser?.role === 'admin_owner'
-  const [allSettings, allBackups, logs] = await Promise.all([
-    omegaApi.settings.getAll(),
-    omegaApi.backup.list(),
-    omegaApi.settings.getAuditLogs({ limit: 30 })
-  ])
 
+  const allSettings = await omegaApi.settings.getAll()
+
+  let allBackups = []
+  let logs = []
   let allUsers = []
+
   if (isAdmin) {
     try {
       allUsers = await omegaApi.auth.getUsers()
     } catch (err) {
       console.error('Failed to load staff accounts:', err)
       allUsers = []
+    }
+    try {
+      allBackups = await omegaApi.backup.list()
+    } catch (err) {
+      allBackups = []
+    }
+    try {
+      logs = await omegaApi.settings.getAuditLogs({ limit: 30 })
+    } catch (err) {
+      logs = []
     }
   }
 
