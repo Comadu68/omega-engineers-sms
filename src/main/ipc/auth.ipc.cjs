@@ -208,7 +208,6 @@ const register = (customIpcMain = null) => {
       currentPassword
     })
   })
-  })
 }
 
 module.exports = {

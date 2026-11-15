@@ -1,4 +1,11 @@
 import React, { useEffect, useState } from 'react'
+import {
+  ArrowRight,
+  AlertTriangle,
+  CheckCircle2,
+  Clock,
+  Plus
+} from 'lucide-react'
 import { Badge } from '../components/Badge'
 
 export const Dashboard = ({ onNavigate, onOpenNewJob, onOpenNewAppointment }) => {
@@ -114,9 +121,11 @@ export const Dashboard = ({ onNavigate, onOpenNewJob, onOpenNewAppointment }) =>
               <button
                 type="button"
                 className="btn btn-secondary btn-sm"
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}
                 onClick={() => onNavigate('jobcards')}
               >
-                View All →
+                <span>View All</span>
+                <ArrowRight size={13} />
               </button>
             </div>
             {recentJobs.length === 0 ? (
@@ -166,20 +175,23 @@ export const Dashboard = ({ onNavigate, onOpenNewJob, onOpenNewAppointment }) =>
           <div className="card">
             <div className="card-header">
               <h3 className="card-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span>⚠️</span>
+                <AlertTriangle size={16} color="var(--warning)" />
                 <span>Low-Stock Inventory Alerts</span>
               </h3>
               <button
                 type="button"
                 className="btn btn-secondary btn-sm"
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}
                 onClick={() => onNavigate('inventory')}
               >
-                Manage Stock →
+                <span>Manage Stock</span>
+                <ArrowRight size={13} />
               </button>
             </div>
             {lowStockItems.length === 0 ? (
-              <p style={{ margin: 0, color: 'var(--success)', fontSize: '13px', padding: '10px 0' }}>
-                ✓ All inventory items are adequately stocked above reorder thresholds.
+              <p style={{ margin: 0, color: 'var(--success)', fontSize: '13px', padding: '10px 0', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <CheckCircle2 size={15} color="var(--success)" />
+                <span>All inventory items are adequately stocked above reorder thresholds.</span>
               </p>
             ) : (
               <table className="data-table">
@@ -205,9 +217,11 @@ export const Dashboard = ({ onNavigate, onOpenNewJob, onOpenNewAppointment }) =>
                         <button
                           type="button"
                           className="btn btn-primary btn-sm"
+                          style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}
                           onClick={() => onNavigate('inventory', { receiveItem: item })}
                         >
-                          + Receive Batch
+                          <Plus size={13} />
+                          <span>Receive Batch</span>
                         </button>
                       </td>
                     </tr>
@@ -227,9 +241,11 @@ export const Dashboard = ({ onNavigate, onOpenNewJob, onOpenNewAppointment }) =>
               <button
                 type="button"
                 className="btn btn-secondary btn-sm"
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}
                 onClick={() => onNavigate('appointments')}
               >
-                Calendar →
+                <span>Calendar</span>
+                <ArrowRight size={13} />
               </button>
             </div>
             {todayAppointments.length === 0 ? (
@@ -252,8 +268,9 @@ export const Dashboard = ({ onNavigate, onOpenNewJob, onOpenNewAppointment }) =>
                     }}
                   >
                     <div>
-                      <div style={{ fontWeight: 700, fontSize: '13px', color: 'var(--primary)' }}>
-                        ⏰ {a.startTime}
+                      <div style={{ fontWeight: 700, fontSize: '13px', color: 'var(--primary)', display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+                        <Clock size={13} />
+                        <span>{a.startTime}</span>
                       </div>
                       <div style={{ fontWeight: 600, fontSize: '13px', marginTop: '2px' }}>
                         {a.customerName} ({a.registrationNo})
@@ -269,7 +286,7 @@ export const Dashboard = ({ onNavigate, onOpenNewJob, onOpenNewAppointment }) =>
                           <button
                             type="button"
                             className="btn btn-primary btn-sm"
-                            style={{ fontSize: '11px', padding: '3px 8px' }}
+                            style={{ fontSize: '11px', padding: '3px 8px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
                             onClick={() => onOpenNewJob({
                               customerId: a.customerId,
                               vehicleId: a.vehicleId,
@@ -277,7 +294,8 @@ export const Dashboard = ({ onNavigate, onOpenNewJob, onOpenNewAppointment }) =>
                               complaint: a.serviceReason
                             })}
                           >
-                            Open Job Card →
+                            <span>Open Job Card</span>
+                            <ArrowRight size={12} />
                           </button>
                         </div>
                       )}
@@ -295,9 +313,11 @@ export const Dashboard = ({ onNavigate, onOpenNewJob, onOpenNewAppointment }) =>
               <button
                 type="button"
                 className="btn btn-secondary btn-sm"
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}
                 onClick={() => onNavigate('mechanics')}
               >
-                View Roster →
+                <span>View Roster</span>
+                <ArrowRight size={13} />
               </button>
             </div>
             {mechanics.length === 0 ? (

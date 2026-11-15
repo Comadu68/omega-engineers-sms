@@ -1,16 +1,28 @@
 import React from 'react'
+import {
+  LayoutDashboard,
+  ClipboardList,
+  Calendar,
+  Package,
+  Wrench,
+  Car,
+  Receipt,
+  BarChart3,
+  Settings,
+  LogOut
+} from 'lucide-react'
 import { canAccessModule } from '../utils/permissions'
 
 export const NAV_ITEMS = [
-  { id: 'dashboard', label: 'Dashboard', icon: '📊' },
-  { id: 'jobcards', label: 'Job Cards', icon: '📋' },
-  { id: 'appointments', label: 'Appointments', icon: '📅' },
-  { id: 'inventory', label: 'Inventory', icon: '📦' },
-  { id: 'mechanics', label: 'Mechanics', icon: '🔧' },
-  { id: 'customers', label: 'Customers', icon: '👥' },
-  { id: 'invoices', label: 'Invoices', icon: '💳' },
-  { id: 'reports', label: 'Reports', icon: '📈' },
-  { id: 'settings', label: 'Settings', icon: '⚙️' }
+  { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { id: 'jobcards', label: 'Job Cards', icon: ClipboardList },
+  { id: 'appointments', label: 'Appointments', icon: Calendar },
+  { id: 'inventory', label: 'Inventory', icon: Package },
+  { id: 'mechanics', label: 'Mechanics', icon: Wrench },
+  { id: 'customers', label: 'Customers', icon: Car },
+  { id: 'invoices', label: 'Invoices', icon: Receipt },
+  { id: 'reports', label: 'Reports', icon: BarChart3 },
+  { id: 'settings', label: 'Settings', icon: Settings }
 ]
 
 export const Sidebar = ({ activeTab, onSelectTab, currentUser, onLogout }) => {
@@ -56,17 +68,22 @@ export const Sidebar = ({ activeTab, onSelectTab, currentUser, onLogout }) => {
       </div>
 
       <nav>
-        {visibleNavItems.map((item) => (
-          <button
-            key={item.id}
-            type="button"
-            className={`nav-item ${activeTab === item.id ? 'active' : ''}`}
-            onClick={() => onSelectTab(item.id)}
-          >
-            <span className="nav-item-icon">{item.icon}</span>
-            <span>{item.label}</span>
-          </button>
-        ))}
+        {visibleNavItems.map((item) => {
+          const IconComponent = item.icon
+          return (
+            <button
+              key={item.id}
+              type="button"
+              className={`nav-item ${activeTab === item.id ? 'active' : ''}`}
+              onClick={() => onSelectTab(item.id)}
+            >
+              <span className="nav-item-icon">
+                <IconComponent size={18} />
+              </span>
+              <span>{item.label}</span>
+            </button>
+          )
+        })}
       </nav>
 
       <div className="sidebar-footer">
@@ -80,7 +97,7 @@ export const Sidebar = ({ activeTab, onSelectTab, currentUser, onLogout }) => {
           </div>
         )}
         <button type="button" className="logout-btn" onClick={onLogout}>
-          <span>🚪</span>
+          <LogOut size={16} />
           <span>Logout</span>
         </button>
       </div>

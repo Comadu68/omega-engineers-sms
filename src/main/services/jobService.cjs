@@ -209,34 +209,66 @@ const create = ({
   })
 }
 
+const assertJobEditable = (jobCardId) => {
+  const job = dbHelper.queryOne('SELECT id, status FROM job_cards WHERE id = ?', [jobCardId])
+  if (!job) throw new Error('Job Card not found.')
+  if (job.status === 'completed' || job.status === 'cancelled') {
+    throw new Error('Cannot modify tasks or spare parts on a completed, cancelled, or invoiced Job Card.')
+  }
+  const activeInvoice = dbHelper.queryOne(
+    "SELECT id FROM invoices WHERE job_card_id = ? AND payment_status != 'void'",
+    [jobCardId]
+  )
+  if (activeInvoice) {
+    throw new Error('Cannot modify tasks or spare parts on a completed, cancelled, or invoiced Job Card.')
+  }
+  return job
+}
+
 const updateStatus = (id, status, cancellationReason = null) => {
   const valid = ['pending', 'in_progress', 'completed', 'cancelled']
   if (!valid.includes(status)) throw new Error('Invalid job status.')
 
-  const existing = dbHelper.queryOne('SELECT status FROM job_cards WHERE id = ?', [id])
-  if (!existing) throw new Error('Job Card not found.')
+  return dbHelper.runTransaction(() => {
+    const existing = dbHelper.queryOne('SELECT status FROM job_cards WHERE id = ?', [id])
+    if (!existing) throw new Error('Job Card not found.')
 
-  let completedAt = null
-  let cancelledAt = null
+    if (status === 'completed') {
+      const taskCount = dbHelper.queryOne('SELECT COUNT(*) AS c FROM job_tasks WHERE job_card_id = ?', [id])?.c || 0
+      const partCount = dbHelper.queryOne('SELECT COUNT(*) AS c FROM job_parts WHERE job_card_id = ?', [id])?.c || 0
+      if (taskCount === 0 && partCount === 0) {
+        throw new Error('Cannot complete a Job Card without any recorded tasks or spare parts.')
+      }
+    } else if (status === 'cancelled' && existing.status !== 'cancelled') {
+      // Check if active invoice exists
+      const activeInvoice = dbHelper.queryOne(
+        "SELECT id, invoice_no FROM invoices WHERE job_card_id = ? AND payment_status != 'void'",
+        [id]
+      )
+      if (activeInvoice) {
+        throw new Error(`Cannot cancel Job Card because active invoice ${activeInvoice.invoice_no} exists. Please void the invoice first.`)
+      }
 
-  if (status === 'completed') {
-    completedAt = new Date().toISOString()
-  } else if (status === 'cancelled') {
-    cancelledAt = new Date().toISOString()
-  }
+      // Restore all consumed FIFO parts back to inventory batches
+      const parts = dbHelper.queryAll('SELECT id FROM job_parts WHERE job_card_id = ?', [id])
+      for (const p of parts) {
+        inventoryService.restorePartQty(p.id)
+      }
+    }
 
-  dbHelper.runSql(
-    `UPDATE job_cards
-     SET status = ?,
-         completed_at = CASE WHEN ? = 'completed' THEN CURRENT_TIMESTAMP ELSE completed_at END,
-         cancelled_at = CASE WHEN ? = 'cancelled' THEN CURRENT_TIMESTAMP ELSE cancelled_at END,
-         cancellation_reason = CASE WHEN ? = 'cancelled' THEN ? ELSE cancellation_reason END,
-         updated_at = CURRENT_TIMESTAMP
-     WHERE id = ?`,
-    [status, status, status, status, cancellationReason ? cancellationReason.trim() : null, id]
-  )
+    dbHelper.runSql(
+      `UPDATE job_cards
+       SET status = ?,
+           completed_at = CASE WHEN ? = 'completed' THEN CURRENT_TIMESTAMP ELSE completed_at END,
+           cancelled_at = CASE WHEN ? = 'cancelled' THEN CURRENT_TIMESTAMP ELSE cancelled_at END,
+           cancellation_reason = CASE WHEN ? = 'cancelled' THEN ? ELSE cancellation_reason END,
+           updated_at = CURRENT_TIMESTAMP
+       WHERE id = ?`,
+      [status, status, status, status, cancellationReason ? cancellationReason.trim() : null, id]
+    )
 
-  return get(id)
+    return get(id)
+  })
 }
 
 const assignMechanic = (jobId, mechanicId, userId = null) => {
@@ -262,6 +294,7 @@ const addTask = (jobId, { description, serviceCharge = 0, note = '' }) => {
   if (!description || !description.trim()) {
     throw new Error('Task description is required.')
   }
+  assertJobEditable(jobId)
   dbHelper.runSql(
     'INSERT INTO job_tasks (job_card_id, description, service_charge, note) VALUES (?, ?, ?, ?)',
     [jobId, description.trim(), Math.max(0, parseFloat(serviceCharge) || 0), note.trim()]
@@ -270,6 +303,10 @@ const addTask = (jobId, { description, serviceCharge = 0, note = '' }) => {
 }
 
 const updateTask = (taskId, { description, status, serviceCharge, note }) => {
+  const task = dbHelper.queryOne('SELECT job_card_id FROM job_tasks WHERE id = ?', [taskId])
+  if (!task) throw new Error('Task not found.')
+  assertJobEditable(task.job_card_id)
+
   const valid = ['pending', 'in_progress', 'completed', 'cancelled']
   if (status && !valid.includes(status)) throw new Error('Invalid task status.')
 
@@ -291,22 +328,20 @@ const updateTask = (taskId, { description, status, serviceCharge, note }) => {
     ]
   )
 
-  const task = dbHelper.queryOne('SELECT job_card_id FROM job_tasks WHERE id = ?', [taskId])
-  return task ? get(task.job_card_id) : null
+  return get(task.job_card_id)
 }
 
 const deleteTask = (taskId) => {
   const task = dbHelper.queryOne('SELECT job_card_id FROM job_tasks WHERE id = ?', [taskId])
-  if (task) {
-    dbHelper.runSql('DELETE FROM job_tasks WHERE id = ?', [taskId])
-    return get(task.job_card_id)
-  }
-  return null
+  if (!task) throw new Error('Task not found.')
+  assertJobEditable(task.job_card_id)
+
+  dbHelper.runSql('DELETE FROM job_tasks WHERE id = ?', [taskId])
+  return get(task.job_card_id)
 }
 
 const addPart = (jobId, { inventoryItemId, qty, sellingPriceOverride = null, userId = null }) => {
-  const job = dbHelper.queryOne('SELECT id FROM job_cards WHERE id = ?', [jobId])
-  if (!job) throw new Error('Job Card not found.')
+  assertJobEditable(jobId)
   inventoryService.consumeFifo(jobId, inventoryItemId, qty, sellingPriceOverride, userId)
   return get(jobId)
 }
@@ -314,6 +349,7 @@ const addPart = (jobId, { inventoryItemId, qty, sellingPriceOverride = null, use
 const removePart = (jobPartId) => {
   const part = dbHelper.queryOne('SELECT job_card_id FROM job_parts WHERE id = ?', [jobPartId])
   if (!part) throw new Error('Part record not found.')
+  assertJobEditable(part.job_card_id)
   inventoryService.restorePartQty(jobPartId)
   return get(part.job_card_id)
 }

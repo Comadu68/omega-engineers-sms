@@ -1,4 +1,15 @@
 import React, { useEffect, useState } from 'react'
+import {
+  Plus,
+  ChevronLeft,
+  ChevronRight,
+  Calendar,
+  Clock,
+  Search,
+  ArrowRight,
+  AlertTriangle,
+  CheckCircle2
+} from 'lucide-react'
 import { Modal } from '../components/Modal'
 import { Badge } from '../components/Badge'
 
@@ -25,7 +36,7 @@ const SERVICE_TYPES = [
   'General Inspection / Other'
 ]
 
-export const Appointments = ({ onOpenJobCardWithDetails }) => {
+export const Appointments = ({ onOpenJobCardWithDetails, currentUser = null }) => {
   const todayDate = new Date()
   const [currentYear, setCurrentYear] = useState(todayDate.getFullYear())
   const [currentMonth, setCurrentMonth] = useState(todayDate.getMonth() + 1)
@@ -33,9 +44,18 @@ export const Appointments = ({ onOpenJobCardWithDetails }) => {
   
   const [monthAvailability, setMonthAvailability] = useState({ dates: {}, maxCapacity: 8 })
   const [appointmentsList, setAppointmentsList] = useState([])
-  const [activeFilter, setActiveFilter] = useState('date') // 'date', 'today', 'week', 'upcoming', 'cancelled'
+  const [activeFilter, setActiveFilter] = useState('date') // 'date', 'today', 'week', 'upcoming', 'cancelled', 'no_show'
   const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(true)
+  const [activeUser, setActiveUser] = useState(currentUser)
+
+  useEffect(() => {
+    if (!activeUser && window.omega?.auth?.getCurrentUser) {
+      window.omega.auth.getCurrentUser().then(setActiveUser).catch(() => {})
+    }
+  }, [activeUser])
+
+  const isMechanic = activeUser?.role === 'mechanic'
 
   // New Appointment Modal
   const [isModalOpen, setIsModalOpen] = useState(false)
@@ -82,6 +102,8 @@ export const Appointments = ({ onOpenJobCardWithDetails }) => {
         filters.status = 'scheduled'
       } else if (activeFilter === 'cancelled') {
         filters.status = 'cancelled'
+      } else if (activeFilter === 'no_show') {
+        filters.status = 'no_show'
       }
 
       const list = await window.omega.appointments.list(filters)
@@ -161,11 +183,12 @@ export const Appointments = ({ onOpenJobCardWithDetails }) => {
     }
   }
 
-  const checkSlotRealtime = async (date, time) => {
+  const checkSlotRealtime = async (date, time, vehicleId = null) => {
     try {
       const check = await window.omega.appointments.checkAvailability({
         appointmentDate: date,
-        startTime: time
+        startTime: time,
+        vehicleId: vehicleId || formData.vehicleId || null
       })
       setSlotCheckResult(check)
     } catch (_) {}
@@ -173,9 +196,9 @@ export const Appointments = ({ onOpenJobCardWithDetails }) => {
 
   useEffect(() => {
     if (isModalOpen && formData.appointmentDate && formData.startTime) {
-      checkSlotRealtime(formData.appointmentDate, formData.startTime)
+      checkSlotRealtime(formData.appointmentDate, formData.startTime, formData.vehicleId)
     }
-  }, [formData.appointmentDate, formData.startTime, isModalOpen])
+  }, [formData.appointmentDate, formData.startTime, formData.vehicleId, isModalOpen])
 
   const handleCreateAppointment = async (e) => {
     e.preventDefault()
@@ -211,6 +234,18 @@ export const Appointments = ({ onOpenJobCardWithDetails }) => {
     }
   }
 
+  const handleNoShowAppointment = async (id) => {
+    if (window.confirm('Mark this appointment as No-Show? This frees up the time slot capacity for other customers.')) {
+      try {
+        await window.omega.appointments.updateStatus(id, 'no_show')
+        loadCalendarAvailability()
+        loadAppointments()
+      } catch (err) {
+        alert(err.message || 'Failed to mark appointment as no-show.')
+      }
+    }
+  }
+
   // Calendar rendering math
   const daysInMonth = new Date(currentYear, currentMonth, 0).getDate()
   const firstDayIndex = new Date(currentYear, currentMonth - 1, 1).getDay()
@@ -231,9 +266,17 @@ export const Appointments = ({ onOpenJobCardWithDetails }) => {
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 800 }}>Service Appointments &amp; Bookings</h2>
         </div>
-        <button type="button" className="btn btn-primary" onClick={openNewAppointmentModal}>
-          + New Appointment Booking
-        </button>
+        {!isMechanic && (
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={openNewAppointmentModal}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+          >
+            <Plus size={15} />
+            <span>New Appointment Booking</span>
+          </button>
+        )}
       </div>
 
       {/* Two Column Layout: Left Month Calendar, Right Schedule */}
@@ -245,9 +288,9 @@ export const Appointments = ({ onOpenJobCardWithDetails }) => {
               type="button"
               className="btn btn-secondary btn-sm"
               onClick={handlePrevMonth}
-              style={{ width: '32px', height: '32px', padding: 0 }}
+              style={{ width: '32px', height: '32px', padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
             >
-              ‹
+              <ChevronLeft size={16} />
             </button>
             <span style={{ fontWeight: 800, fontSize: '14px', letterSpacing: '0.5px' }}>
               {monthName} {currentYear}
@@ -256,9 +299,9 @@ export const Appointments = ({ onOpenJobCardWithDetails }) => {
               type="button"
               className="btn btn-secondary btn-sm"
               onClick={handleNextMonth}
-              style={{ width: '32px', height: '32px', padding: 0 }}
+              style={{ width: '32px', height: '32px', padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
             >
-              ›
+              <ChevronRight size={16} />
             </button>
           </div>
 
@@ -281,25 +324,38 @@ export const Appointments = ({ onOpenJobCardWithDetails }) => {
               const isSelected = selectedDate === dayStr
               const isToday = todayStr === dayStr
 
-              let stateClass = 'state-available'
-              let stateText = 'Free'
+              const maxCapacity = dayInfo?.maxCapacity || monthAvailability.maxCapacity || 8
+              const bookedCount = dayInfo?.bookedCount || 0
+              const availableSlots = Math.max(0, maxCapacity - bookedCount)
+              const percent = maxCapacity > 0 ? Math.min(100, Math.round((bookedCount / maxCapacity) * 100)) : 0
 
-              if (dayInfo) {
-                if (dayInfo.status === 'full') {
-                  stateClass = 'state-full'
-                  stateText = 'Full'
-                } else if (dayInfo.status === 'limited') {
-                  stateClass = 'state-limited'
-                  stateText = `${dayInfo.bookedCount}/${dayInfo.maxCapacity}`
-                } else if (dayInfo.bookedCount > 0) {
-                  stateText = `${dayInfo.bookedCount}/${dayInfo.maxCapacity}`
-                }
+              let stateClass = 'state-free'
+              let stateText = 'Free'
+              let progressClass = ''
+              let tooltip = `${dayStr} • 0/${maxCapacity} booked • All ${maxCapacity} slots free`
+
+              if (bookedCount >= maxCapacity || dayInfo?.status === 'full') {
+                stateClass = 'state-full'
+                stateText = 'Full'
+                progressClass = 'progress-full'
+                tooltip = `${dayStr} • ${bookedCount}/${maxCapacity} booked • Full capacity (0 slots left)`
+              } else if (bookedCount >= Math.ceil(maxCapacity / 2) || dayInfo?.status === 'limited') {
+                stateClass = 'state-limited'
+                stateText = `${availableSlots} left`
+                progressClass = 'progress-limited'
+                tooltip = `${dayStr} • ${bookedCount}/${maxCapacity} booked • ${availableSlots} slot${availableSlots === 1 ? '' : 's'} left`
+              } else if (bookedCount > 0) {
+                stateClass = 'state-available'
+                stateText = `${availableSlots} left`
+                progressClass = 'progress-available'
+                tooltip = `${dayStr} • ${bookedCount}/${maxCapacity} booked • ${availableSlots} slot${availableSlots === 1 ? '' : 's'} left`
               }
 
               return (
                 <div
                   key={dayStr}
                   className={`calendar-day-cell ${stateClass} ${isSelected ? 'selected' : ''} ${isToday ? 'today' : ''}`}
+                  title={tooltip}
                   onClick={() => {
                     setSelectedDate(dayStr)
                     setActiveFilter('date')
@@ -307,6 +363,14 @@ export const Appointments = ({ onOpenJobCardWithDetails }) => {
                 >
                   <span className="calendar-day-num">{day}</span>
                   <span className="calendar-day-status-pill">{stateText}</span>
+                  {bookedCount > 0 && (
+                    <div className="calendar-day-progress">
+                      <div
+                        className={`calendar-day-progress-bar ${progressClass}`}
+                        style={{ width: `${percent}%` }}
+                      />
+                    </div>
+                  )}
                 </div>
               )
             })}
@@ -315,8 +379,9 @@ export const Appointments = ({ onOpenJobCardWithDetails }) => {
           {/* Calendar Status Legend */}
           <div
             style={{
-              display: 'flex',
-              justifyContent: 'space-between',
+              display: 'grid',
+              gridTemplateColumns: 'repeat(4, 1fr)',
+              gap: '4px',
               alignItems: 'center',
               marginTop: '16px',
               paddingTop: '12px',
@@ -326,16 +391,20 @@ export const Appointments = ({ onOpenJobCardWithDetails }) => {
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-              <span style={{ width: '10px', height: '10px', borderRadius: '3px', background: 'var(--success)' }} />
+              <span style={{ width: '8px', height: '8px', borderRadius: '2px', background: '#FFFFFF', border: '1px solid var(--border-color)' }} />
+              <span>Free</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <span style={{ width: '8px', height: '8px', borderRadius: '2px', background: 'var(--success)' }} />
               <span>Available</span>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-              <span style={{ width: '10px', height: '10px', borderRadius: '3px', background: 'var(--warning)' }} />
+              <span style={{ width: '8px', height: '8px', borderRadius: '2px', background: 'var(--warning)' }} />
               <span>Limited</span>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-              <span style={{ width: '10px', height: '10px', borderRadius: '3px', background: 'var(--danger)' }} />
-              <span>Full Capacity</span>
+              <span style={{ width: '8px', height: '8px', borderRadius: '2px', background: 'var(--danger)' }} />
+              <span>Full</span>
             </div>
           </div>
 
@@ -352,8 +421,9 @@ export const Appointments = ({ onOpenJobCardWithDetails }) => {
             <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>
               Selected Date Availability
             </div>
-            <div style={{ fontWeight: 800, fontSize: '14px', marginTop: '2px', color: 'var(--text-main)' }}>
-              📅 {selectedDate}
+            <div style={{ fontWeight: 800, fontSize: '14px', marginTop: '2px', color: 'var(--text-main)', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+              <Calendar size={14} />
+              <span>{selectedDate}</span>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '8px', fontSize: '12px' }}>
               <span>Booked: <strong>{selectedDateAvail.bookedCount} / {selectedDateAvail.maxCapacity}</strong></span>
@@ -404,10 +474,19 @@ export const Appointments = ({ onOpenJobCardWithDetails }) => {
               >
                 Cancelled
               </button>
+              <button
+                type="button"
+                className={`chip ${activeFilter === 'no_show' ? 'active' : ''}`}
+                onClick={() => setActiveFilter('no_show')}
+              >
+                No-Show
+              </button>
             </div>
 
             <div className="search-input-wrap" style={{ maxWidth: '240px' }}>
-              <span className="search-icon">🔍</span>
+              <span className="search-icon" style={{ display: 'inline-flex', alignItems: 'center' }}>
+                <Search size={14} />
+              </span>
               <input
                 type="text"
                 className="search-input"
@@ -444,7 +523,10 @@ export const Appointments = ({ onOpenJobCardWithDetails }) => {
                   {appointmentsList.map((a) => (
                     <tr key={a.id}>
                       <td>
-                        <div style={{ fontWeight: 800, color: 'var(--primary)' }}>⏰ {a.startTime}</div>
+                        <div style={{ fontWeight: 800, color: 'var(--primary)', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                          <Clock size={13} />
+                          <span>{a.startTime}</span>
+                        </div>
                         <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{a.appointmentDate}</div>
                       </td>
                       <td>
@@ -461,7 +543,7 @@ export const Appointments = ({ onOpenJobCardWithDetails }) => {
                       <td><Badge status={a.status} /></td>
                       <td>
                         <div style={{ display: 'flex', gap: '6px' }}>
-                          {a.status === 'scheduled' && (
+                          {!isMechanic && a.status === 'scheduled' && (
                             <>
                               <button
                                 type="button"
@@ -472,8 +554,18 @@ export const Appointments = ({ onOpenJobCardWithDetails }) => {
                                   appointmentId: a.id,
                                   complaint: a.serviceReason
                                 })}
+                                style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}
                               >
-                                Open Job →
+                                <span>Open Job</span>
+                                <ArrowRight size={13} />
+                              </button>
+                              <button
+                                type="button"
+                                className="btn btn-secondary btn-sm"
+                                onClick={() => handleNoShowAppointment(a.id)}
+                                title="Mark customer as No-Show"
+                              >
+                                No-Show
                               </button>
                               <button
                                 type="button"
@@ -488,6 +580,9 @@ export const Appointments = ({ onOpenJobCardWithDetails }) => {
                             <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--primary)' }}>
                               Job: {a.linkedJobNo}
                             </span>
+                          )}
+                          {isMechanic && a.status === 'scheduled' && (
+                            <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Scheduled</span>
                           )}
                         </div>
                       </td>
@@ -534,14 +629,16 @@ export const Appointments = ({ onOpenJobCardWithDetails }) => {
           )}
 
           {slotCheckResult && !slotCheckResult.available && (
-            <div style={{ background: 'var(--danger-bg)', color: 'var(--danger-text)', padding: '10px', borderRadius: '6px', fontSize: '12px', marginBottom: '14px', border: '1px solid rgba(227,87,87,0.3)' }}>
-              ⚠️ {slotCheckResult.reason}
+            <div style={{ background: 'var(--danger-bg)', color: 'var(--danger-text)', padding: '10px', borderRadius: '6px', fontSize: '12px', marginBottom: '14px', border: '1px solid rgba(227,87,87,0.3)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <AlertTriangle size={16} />
+              <span>{slotCheckResult.reason}</span>
             </div>
           )}
 
           {slotCheckResult && slotCheckResult.available && (
-            <div style={{ background: 'var(--success-bg)', color: 'var(--success-text)', padding: '8px 12px', borderRadius: '6px', fontSize: '12px', marginBottom: '14px', border: '1px solid rgba(47,177,113,0.3)' }}>
-              ✓ Time slot is available. ({slotCheckResult.availableSlots} of {slotCheckResult.maxCapacity} slots free today)
+            <div style={{ background: 'var(--success-bg)', color: 'var(--success-text)', padding: '8px 12px', borderRadius: '6px', fontSize: '12px', marginBottom: '14px', border: '1px solid rgba(47,177,113,0.3)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <CheckCircle2 size={16} />
+              <span>Time slot is available. ({slotCheckResult.availableSlots} of {slotCheckResult.maxCapacity} slots free today)</span>
             </div>
           )}
 
@@ -603,6 +700,7 @@ export const Appointments = ({ onOpenJobCardWithDetails }) => {
                 <input
                   type="date"
                   className="form-input"
+                  min={new Date().toISOString().split('T')[0]}
                   value={formData.appointmentDate}
                   onChange={(e) => setFormData({ ...formData, appointmentDate: e.target.value })}
                   required

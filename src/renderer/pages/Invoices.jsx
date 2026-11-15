@@ -1,4 +1,12 @@
 import React, { useEffect, useState } from 'react'
+import {
+  Search,
+  CheckCircle2,
+  Clock,
+  AlertCircle,
+  Printer,
+  CreditCard
+} from 'lucide-react'
 import { Badge } from '../components/Badge'
 import { Modal } from '../components/Modal'
 import { InvoicePrintView } from './InvoicePrintView'
@@ -86,7 +94,7 @@ export const Invoices = ({ initialSelectedInvoiceId = null }) => {
       {/* Top Toolbar */}
       <div className="toolbar">
         <div className="search-input-wrap">
-          <span className="search-icon">🔍</span>
+          <span className="search-icon"><Search size={14} /></span>
           <input
             type="text"
             className="search-input"
@@ -110,23 +118,29 @@ export const Invoices = ({ initialSelectedInvoiceId = null }) => {
           <button
             type="button"
             className={`chip ${activeFilter === 'paid' ? 'active' : ''}`}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}
             onClick={() => setActiveFilter('paid')}
           >
-            🟢 Paid
+            <CheckCircle2 size={13} color="var(--success)" />
+            <span>Paid</span>
           </button>
           <button
             type="button"
             className={`chip ${activeFilter === 'partially_paid' ? 'active' : ''}`}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}
             onClick={() => setActiveFilter('partially_paid')}
           >
-            🟡 Partially Paid
+            <Clock size={13} color="var(--warning)" />
+            <span>Partially Paid</span>
           </button>
           <button
             type="button"
             className={`chip ${activeFilter === 'unpaid' ? 'active' : ''}`}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}
             onClick={() => setActiveFilter('unpaid')}
           >
-            🔴 Unpaid / Pending
+            <AlertCircle size={13} color="var(--danger)" />
+            <span>Unpaid / Pending</span>
           </button>
         </div>
       </div>
@@ -185,17 +199,21 @@ export const Invoices = ({ initialSelectedInvoiceId = null }) => {
                       <button
                         type="button"
                         className="btn btn-primary btn-sm"
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}
                         onClick={() => setSelectedInvoiceId(inv.id)}
                       >
-                        Print / View →
+                        <Printer size={13} />
+                        <span>Print / View</span>
                       </button>
                       {inv.balance > 0 && (
                         <button
                           type="button"
                           className="btn btn-success btn-sm"
+                          style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}
                           onClick={() => openQuickPayment(inv)}
                         >
-                          + Pay
+                          <CreditCard size={13} />
+                          <span>Pay</span>
                         </button>
                       )}
                     </div>

@@ -1,12 +1,24 @@
 import React, { useEffect, useState } from 'react'
+import {
+  ArrowLeft,
+  ArrowRight,
+  Plus,
+  Trash2,
+  Phone,
+  AlertTriangle,
+  Package,
+  Layers
+} from 'lucide-react'
 import { Badge } from '../components/Badge'
 import { Modal } from '../components/Modal'
 
-export const JobCardDetail = ({ jobId, onBack, onNavigateToInvoice }) => {
+export const JobCardDetail = ({ jobId, onBack, onNavigateToInvoice, currentUser = null }) => {
   const [job, setJob] = useState(null)
   const [loading, setLoading] = useState(true)
   const [mechanics, setMechanics] = useState([])
   const [inventoryItems, setInventoryItems] = useState([])
+  const [customerView, setCustomerView] = useState(false)
+  const [activeUser, setActiveUser] = useState(currentUser)
 
   // Modal states
   const [isAddTaskOpen, setIsAddTaskOpen] = useState(false)
@@ -17,11 +29,18 @@ export const JobCardDetail = ({ jobId, onBack, onNavigateToInvoice }) => {
   // Forms
   const [taskForm, setTaskForm] = useState({ description: '', serviceCharge: '', note: '' })
   const [partForm, setPartForm] = useState({ inventoryItemId: '', qty: '1', sellingPriceOverride: '' })
+  const [selectedItemBatches, setSelectedItemBatches] = useState([])
   const [cancellationReason, setCancellationReason] = useState('')
   const [invoiceDiscount, setInvoiceDiscount] = useState('0')
 
   const [formError, setFormError] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
+
+  useEffect(() => {
+    if (!activeUser && window.omega?.auth?.getCurrentUser) {
+      window.omega.auth.getCurrentUser().then(setActiveUser).catch(() => {})
+    }
+  }, [activeUser])
 
   const loadJob = async () => {
     try {
@@ -52,6 +71,27 @@ export const JobCardDetail = ({ jobId, onBack, onNavigateToInvoice }) => {
     loadJob()
   }, [jobId])
 
+  useEffect(() => {
+    if (isAddPartOpen && partForm.inventoryItemId) {
+      window.omega.inventory.get(partForm.inventoryItemId)
+        .then((item) => {
+          if (item && item.batches) {
+            const active = item.batches
+              .filter((b) => (b.remainingQty || 0) > 0)
+              .sort((a, b) => {
+                if (a.receivedAt < b.receivedAt) return -1
+                if (a.receivedAt > b.receivedAt) return 1
+                return a.id - b.id
+              })
+            setSelectedItemBatches(active)
+          } else {
+            setSelectedItemBatches([])
+          }
+        })
+        .catch(() => setSelectedItemBatches([]))
+    }
+  }, [isAddPartOpen, partForm.inventoryItemId])
+
   const handleStatusChange = async (newStatus) => {
     if (newStatus === 'cancelled') {
       setCancellationReason('')
@@ -60,8 +100,12 @@ export const JobCardDetail = ({ jobId, onBack, onNavigateToInvoice }) => {
     }
 
     try {
-      await window.omega.jobs.updateStatus(job.id, newStatus)
-      loadJob()
+      const updated = await window.omega.jobs.updateStatus(job.id, newStatus)
+      await loadJob()
+      // Feature WW-F1: Auto-prompt invoice creation modal when job transitions to completed
+      if (newStatus === 'completed' && (!updated || !updated.invoiceId)) {
+        setIsGenerateInvoiceOpen(true)
+      }
     } catch (err) {
       alert(err.message || 'Failed to update status.')
     }
@@ -210,8 +254,14 @@ export const JobCardDetail = ({ jobId, onBack, onNavigateToInvoice }) => {
       {/* Top action header */}
       <div className="toolbar" style={{ marginBottom: '20px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-          <button type="button" className="btn btn-secondary btn-sm" onClick={onBack}>
-            ← Back to Job Cards
+          <button
+            type="button"
+            className="btn btn-secondary btn-sm"
+            onClick={onBack}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+          >
+            <ArrowLeft size={14} />
+            <span>Back to Job Cards</span>
           </button>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -245,8 +295,10 @@ export const JobCardDetail = ({ jobId, onBack, onNavigateToInvoice }) => {
               type="button"
               className="btn btn-success"
               onClick={() => onNavigateToInvoice(job.invoiceId)}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
             >
-              View Invoice ({job.invoiceNo}) →
+              <span>View Invoice ({job.invoiceNo})</span>
+              <ArrowRight size={14} />
             </button>
           ) : (
             <button
@@ -254,8 +306,10 @@ export const JobCardDetail = ({ jobId, onBack, onNavigateToInvoice }) => {
               className="btn btn-primary"
               onClick={() => setIsGenerateInvoiceOpen(true)}
               disabled={job.status === 'cancelled'}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
             >
-              Generate Bill &amp; Sticker →
+              <span>Generate Bill &amp; Sticker</span>
+              <ArrowRight size={14} />
             </button>
           )}
         </div>
@@ -273,8 +327,11 @@ export const JobCardDetail = ({ jobId, onBack, onNavigateToInvoice }) => {
             color: 'var(--danger-text)'
           }}
         >
-          <strong>⚠️ This Job Card was Cancelled.</strong>
-          {job.cancellationReason && <div>Reason: {job.cancellationReason}</div>}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <AlertTriangle size={18} />
+            <strong>This Job Card was Cancelled.</strong>
+          </div>
+          {job.cancellationReason && <div style={{ marginTop: '4px' }}>Reason: {job.cancellationReason}</div>}
           <div style={{ fontSize: '11px', marginTop: '4px', opacity: 0.85 }}>
             Cancelled at: {job.cancelledAt ? job.cancelledAt.replace('T', ' ').slice(0, 16) : '—'}
           </div>
@@ -292,7 +349,10 @@ export const JobCardDetail = ({ jobId, onBack, onNavigateToInvoice }) => {
             <div>
               <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>CUSTOMER</div>
               <div style={{ fontWeight: 700, fontSize: '14px', marginTop: '2px' }}>{job.customerName}</div>
-              <div style={{ color: 'var(--text-muted)', fontSize: '12px' }}>📞 {job.customerPhone}</div>
+              <div style={{ color: 'var(--text-muted)', fontSize: '12px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                <Phone size={12} />
+                <span>{job.customerPhone}</span>
+              </div>
               {job.customerAltPhone && <div style={{ color: 'var(--text-muted)', fontSize: '12px' }}>Alt: {job.customerAltPhone}</div>}
             </div>
 
@@ -344,11 +404,17 @@ export const JobCardDetail = ({ jobId, onBack, onNavigateToInvoice }) => {
             <div style={{ padding: '12px', background: 'var(--bg-main)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', fontSize: '12px' }}>
               <div style={{ fontWeight: 700, fontSize: '13px' }}>{job.mechanicName}</div>
               <div style={{ color: 'var(--primary)', fontWeight: 600 }}>{job.mechanicSpecialty}</div>
-              {job.mechanicPhone && <div style={{ color: 'var(--text-muted)', marginTop: '2px' }}>📞 {job.mechanicPhone}</div>}
+              {job.mechanicPhone && (
+                <div style={{ color: 'var(--text-muted)', marginTop: '2px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                  <Phone size={12} />
+                  <span>{job.mechanicPhone}</span>
+                </div>
+              )}
             </div>
           ) : (
-            <div style={{ padding: '12px', background: '#FEF6EC', borderRadius: 'var(--radius-md)', color: 'var(--warning-text)', fontSize: '12px' }}>
-              ⚠️ No mechanic assigned yet. Select from dropdown to assign.
+            <div style={{ padding: '12px', background: '#FEF6EC', borderRadius: 'var(--radius-md)', color: 'var(--warning-text)', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <AlertTriangle size={15} />
+              <span>No mechanic assigned yet. Select from dropdown to assign.</span>
             </div>
           )}
         </div>
@@ -371,9 +437,11 @@ export const JobCardDetail = ({ jobId, onBack, onNavigateToInvoice }) => {
               setTaskForm({ description: '', serviceCharge: '', note: '' })
               setIsAddTaskOpen(true)
             }}
-            disabled={job.status === 'cancelled'}
+            disabled={isJobLocked}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
           >
-            + Add Task
+            <Plus size={14} />
+            <span>Add Task</span>
           </button>
         </div>
 
@@ -415,7 +483,7 @@ export const JobCardDetail = ({ jobId, onBack, onNavigateToInvoice }) => {
                       checked={t.status === 'completed'}
                       onChange={() => handleToggleTaskStatus(t.id, t.status)}
                       style={{ width: '16px', height: '16px', cursor: 'pointer' }}
-                      disabled={job.status === 'cancelled'}
+                      disabled={isJobLocked}
                     />
                   </td>
                   <td>
@@ -431,11 +499,12 @@ export const JobCardDetail = ({ jobId, onBack, onNavigateToInvoice }) => {
                     <button
                       type="button"
                       className="btn btn-danger btn-sm"
-                      style={{ padding: '2px 6px', fontSize: '10px' }}
+                      style={{ padding: '3px 6px', fontSize: '10px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
                       onClick={() => handleDeleteTask(t.id)}
-                      disabled={job.status === 'cancelled'}
+                      disabled={isJobLocked}
+                      title="Delete task"
                     >
-                      ✕
+                      <Trash2 size={12} />
                     </button>
                   </td>
                 </tr>
@@ -461,9 +530,11 @@ export const JobCardDetail = ({ jobId, onBack, onNavigateToInvoice }) => {
               setFormError('')
               setIsAddPartOpen(true)
             }}
-            disabled={job.status === 'cancelled'}
+            disabled={isJobLocked}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
           >
-            + Consume Part (FIFO)
+            <Plus size={14} />
+            <span>Consume Part (FIFO)</span>
           </button>
         </div>
 
@@ -478,7 +549,7 @@ export const JobCardDetail = ({ jobId, onBack, onNavigateToInvoice }) => {
                 <th>Part Description</th>
                 <th>Batch No</th>
                 <th>Qty</th>
-                <th>FIFO Cost Price</th>
+                {canViewConfidential && <th>FIFO Cost Price</th>}
                 <th>Selling Price</th>
                 <th>Line Total</th>
                 <th>Action</th>
@@ -497,7 +568,9 @@ export const JobCardDetail = ({ jobId, onBack, onNavigateToInvoice }) => {
                     </span>
                   </td>
                   <td style={{ fontWeight: 700 }}>{p.qty}</td>
-                  <td style={{ color: 'var(--text-muted)' }}>Rs. {p.unitCostAtUse.toLocaleString()}</td>
+                  {canViewConfidential && (
+                    <td style={{ color: 'var(--text-muted)' }}>Rs. {p.unitCostAtUse.toLocaleString()}</td>
+                  )}
                   <td style={{ fontWeight: 600 }}>Rs. {p.sellingPriceAtUse.toLocaleString()}</td>
                   <td style={{ fontWeight: 700 }}>Rs. {p.lineTotal.toLocaleString()}</td>
                   <td>
@@ -506,7 +579,7 @@ export const JobCardDetail = ({ jobId, onBack, onNavigateToInvoice }) => {
                       className="btn btn-danger btn-sm"
                       style={{ padding: '2px 6px', fontSize: '10px' }}
                       onClick={() => handleRemovePart(p.id)}
-                      disabled={job.status === 'cancelled'}
+                      disabled={isJobLocked}
                     >
                       Return Qty
                     </button>
@@ -526,9 +599,23 @@ export const JobCardDetail = ({ jobId, onBack, onNavigateToInvoice }) => {
             borderRadius: 'var(--radius-md)',
             border: '1px solid var(--border-color)',
             display: 'flex',
-            justifyContent: 'flex-end'
+            justifyContent: 'space-between',
+            alignItems: 'flex-start'
           }}
         >
+          {/* Customer View Toggle */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
+              <input
+                type="checkbox"
+                checked={customerView}
+                onChange={(e) => setCustomerView(e.target.checked)}
+                style={{ cursor: 'pointer' }}
+              />
+              <span>Customer View (Hide Margins &amp; Batch Cost)</span>
+            </label>
+          </div>
+
           <div style={{ width: '320px', display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '13px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
               <span style={{ color: 'var(--text-muted)' }}>Service / Labour Total:</span>
@@ -538,14 +625,18 @@ export const JobCardDetail = ({ jobId, onBack, onNavigateToInvoice }) => {
               <span style={{ color: 'var(--text-muted)' }}>Parts Sales Total:</span>
               <strong>Rs. {job.partsSalesTotal.toLocaleString()}</strong>
             </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-muted)', fontSize: '12px' }}>
-              <span>Parts FIFO Batch Cost (COGS):</span>
-              <span>Rs. {job.partsCostTotal.toLocaleString()}</span>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--success-text)', fontSize: '12px', fontWeight: 600 }}>
-              <span>Gross Parts Margin:</span>
-              <span>Rs. {(job.partsSalesTotal - job.partsCostTotal).toLocaleString()}</span>
-            </div>
+            {canViewConfidential && (
+              <>
+                <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-muted)', fontSize: '12px' }}>
+                  <span>Parts FIFO Batch Cost (COGS):</span>
+                  <span>Rs. {job.partsCostTotal.toLocaleString()}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--success-text)', fontSize: '12px', fontWeight: 600 }}>
+                  <span>Gross Parts Margin:</span>
+                  <span>Rs. {(job.partsSalesTotal - job.partsCostTotal).toLocaleString()}</span>
+                </div>
+              </>
+            )}
             <div
               style={{
                 display: 'flex',
@@ -714,6 +805,60 @@ export const JobCardDetail = ({ jobId, onBack, onNavigateToInvoice }) => {
                 />
               </div>
             </div>
+
+            {/* Feature WW-F3: Batch Breakdown Preview Before FIFO Deduction */}
+            {(() => {
+              const qtyNeeded = Math.max(0, parseFloat(partForm.qty) || 0)
+              let remainingToDeduct = qtyNeeded
+              const batchBreakdown = []
+              for (const b of selectedItemBatches) {
+                if (remainingToDeduct <= 0) break
+                const take = Math.min(b.remainingQty || 0, remainingToDeduct)
+                batchBreakdown.push({
+                  batchNo: b.batchNo,
+                  unitCost: b.unitCost,
+                  deductQty: take,
+                  remainingInBatch: b.remainingQty
+                })
+                remainingToDeduct -= take
+              }
+
+              if (batchBreakdown.length === 0) return null
+
+              return (
+                <div style={{ marginTop: '14px', padding: '10px 14px', background: 'var(--bg-main)', borderRadius: '6px', border: '1px solid var(--border-color)', fontSize: '12px' }}>
+                  <div style={{ fontWeight: 700, marginBottom: '6px', color: 'var(--text-main)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                      <Package size={14} />
+                      <span>FIFO Batch Allocation Preview</span>
+                    </div>
+                    {batchBreakdown.length > 1 && (
+                      <span style={{ fontSize: '11px', color: 'var(--warning-text)', fontWeight: 600 }}>Multi-Batch Split ({batchBreakdown.length} batches)</span>
+                    )}
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    {batchBreakdown.map((b, idx) => (
+                      <div key={b.batchNo || idx} style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0', borderBottom: idx < batchBreakdown.length - 1 ? '1px dashed var(--border-subtle)' : 'none' }}>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                          <Layers size={13} style={{ color: idx === 0 ? 'var(--success)' : 'var(--primary)' }} />
+                          <span>{idx === 0 ? 'Oldest Batch' : 'Next Batch'} <strong>#{b.batchNo}</strong></span>
+                          <span style={{ color: 'var(--text-muted)' }}>({b.remainingInBatch} in stock{canViewConfidential ? ` @ Rs. ${b.unitCost?.toLocaleString()}` : ''})</span>
+                        </span>
+                        <span style={{ fontWeight: 700, color: 'var(--primary)' }}>
+                          Deduct: {b.deductQty} unit{b.deductQty === 1 ? '' : 's'}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                  {remainingToDeduct > 0 && (
+                    <div style={{ marginTop: '6px', color: 'var(--danger-text)', fontWeight: 600, fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <AlertTriangle size={13} />
+                      <span>Shortfall: Insufficient stock (short by {remainingToDeduct} units).</span>
+                    </div>
+                  )}
+                </div>
+              )
+            })()}
           </form>
         </Modal>
       )}
@@ -786,8 +931,10 @@ export const JobCardDetail = ({ jobId, onBack, onNavigateToInvoice }) => {
                 className="btn btn-primary"
                 onClick={handleGenerateInvoice}
                 disabled={isSubmitting}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
               >
-                {isSubmitting ? 'Generating...' : 'Generate Invoice & Service Sticker →'}
+                <span>{isSubmitting ? 'Generating...' : 'Generate Invoice & Service Sticker'}</span>
+                {!isSubmitting && <ArrowRight size={14} />}
               </button>
             </>
           }

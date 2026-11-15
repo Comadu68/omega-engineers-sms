@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react'
+import { X } from 'lucide-react'
 
 export const Modal = ({ isOpen, title, onClose, children, footer, size = 'md' }) => {
   useEffect(() => {
@@ -22,8 +23,8 @@ export const Modal = ({ isOpen, title, onClose, children, footer, size = 'md' })
         <div className="modal-header">
           <h3 className="modal-title">{title}</h3>
           {onClose && (
-            <button type="button" className="modal-close" onClick={onClose} aria-label="Close">
-              ✕
+            <button type="button" className="modal-close" onClick={onClose} aria-label="Close" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+              <X size={16} />
             </button>
           )}
         </div>

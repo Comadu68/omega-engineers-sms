@@ -1,4 +1,14 @@
 import React, { useEffect, useState } from 'react'
+import {
+  CheckCircle2,
+  Key,
+  Save,
+  Upload,
+  FolderOpen,
+  Lock,
+  Plus,
+  Pencil
+} from 'lucide-react'
 import { Modal } from '../components/Modal'
 import { Badge } from '../components/Badge'
 
@@ -104,7 +114,7 @@ export const Settings = ({ currentUser, onDatabaseRestored }) => {
     setBackupMessage('')
     try {
       const res = await window.omega.backup.create()
-      setBackupMessage(`✓ Backup successfully created: ${res.fileName}`)
+      setBackupMessage(`Backup successfully created: ${res.fileName}`)
       const updatedBackups = await window.omega.backup.list()
       setBackups(updatedBackups)
     } catch (err) {
@@ -131,7 +141,7 @@ export const Settings = ({ currentUser, onDatabaseRestored }) => {
       if (window.confirm(`Restore database from "${targetPath}"? A safety backup of your current database will be saved before restoring.`)) {
         const res = await window.omega.backup.restore(targetPath)
         if (res.success && res.integrityOk) {
-          alert('✓ Database successfully restored and integrity verified! The application data will now refresh.')
+          alert('Database successfully restored and integrity verified! The application data will now refresh.')
           if (onDatabaseRestored) {
             onDatabaseRestored()
           } else {
@@ -233,7 +243,7 @@ export const Settings = ({ currentUser, onDatabaseRestored }) => {
       setIsPasswordModalOpen(false)
       setSelectedUserForPassword(null)
       setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' })
-      alert('✓ Password updated successfully.')
+      alert('Password updated successfully.')
     } catch (err) {
       setFormError(err.message || 'Failed to change password.')
     } finally {
@@ -248,8 +258,6 @@ export const Settings = ({ currentUser, onDatabaseRestored }) => {
     const i = Math.floor(Math.log(bytes) / Math.log(k))
     return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`
   }
-
-  const isAdmin = currentUser?.role === 'admin_owner'
 
   return (
     <div className="content-scrollable">
@@ -284,6 +292,7 @@ export const Settings = ({ currentUser, onDatabaseRestored }) => {
             <button
               type="button"
               className="btn btn-primary"
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
               onClick={() => {
                 setFormError('')
                 setSelectedUserForPassword(currentUser)
@@ -291,7 +300,8 @@ export const Settings = ({ currentUser, onDatabaseRestored }) => {
                 setIsPasswordModalOpen(true)
               }}
             >
-              🔑 Change My Password
+              <Key size={14} />
+              <span>Change My Password</span>
             </button>
           </div>
         </div>
@@ -306,8 +316,9 @@ export const Settings = ({ currentUser, onDatabaseRestored }) => {
             </div>
 
             {saveSuccess && (
-              <div style={{ background: 'var(--success-bg)', color: 'var(--success-text)', padding: '8px 12px', borderRadius: '6px', fontSize: '12px', marginBottom: '14px' }}>
-                ✓ Settings saved successfully.
+              <div style={{ background: 'var(--success-bg)', color: 'var(--success-text)', padding: '8px 12px', borderRadius: '6px', fontSize: '12px', marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <CheckCircle2 size={14} color="var(--success-text)" />
+                <span>Settings saved successfully.</span>
               </div>
             )}
 
@@ -407,20 +418,24 @@ export const Settings = ({ currentUser, onDatabaseRestored }) => {
             </div>
 
             {backupMessage && (
-              <div style={{ background: 'var(--success-bg)', color: 'var(--success-text)', padding: '8px 12px', borderRadius: '6px', fontSize: '12px', marginBottom: '14px' }}>
-                {backupMessage}
+              <div style={{ background: 'var(--success-bg)', color: 'var(--success-text)', padding: '8px 12px', borderRadius: '6px', fontSize: '12px', marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <CheckCircle2 size={14} color="var(--success-text)" />
+                <span>{backupMessage}</span>
               </div>
             )}
 
             <div style={{ display: 'flex', gap: '10px', marginBottom: '18px', flexWrap: 'wrap' }}>
-              <button type="button" className="btn btn-primary" onClick={handleCreateBackup}>
-                💾 Create Backup Now
+              <button type="button" className="btn btn-primary" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }} onClick={handleCreateBackup}>
+                <Save size={14} />
+                <span>Create Backup Now</span>
               </button>
-              <button type="button" className="btn btn-secondary" onClick={() => handleRestoreFromFile()}>
-                📂 Restore from File...
+              <button type="button" className="btn btn-secondary" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }} onClick={() => handleRestoreFromFile()}>
+                <Upload size={14} />
+                <span>Restore from File...</span>
               </button>
-              <button type="button" className="btn btn-secondary" onClick={handleOpenBackupFolder}>
-                🗀 Open Backups Folder
+              <button type="button" className="btn btn-secondary" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }} onClick={handleOpenBackupFolder}>
+                <FolderOpen size={14} />
+                <span>Open Backups Folder</span>
               </button>
             </div>
 
@@ -479,21 +494,24 @@ export const Settings = ({ currentUser, onDatabaseRestored }) => {
                 <button
                   type="button"
                   className="btn btn-primary btn-sm"
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}
                   onClick={() => {
                     setFormError('')
                     setUserForm({ username: '', displayName: '', role: 'receptionist_service_advisor', password: '' })
                     setIsAddUserOpen(true)
                   }}
                 >
-                  + Add User
+                  <Plus size={13} />
+                  <span>Add User</span>
                 </button>
               )}
             </div>
 
             {!isAdmin ? (
               <div style={{ padding: '12px', background: 'var(--bg-main)', borderRadius: '8px', fontSize: '12px', color: 'var(--text-muted)' }}>
-                <div style={{ fontWeight: 700, color: 'var(--text-main)', marginBottom: '4px' }}>
-                  🔒 Administrator Access Required
+                <div style={{ fontWeight: 700, color: 'var(--text-main)', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Lock size={14} />
+                  <span>Administrator Access Required</span>
                 </div>
                 <p style={{ margin: '0 0 10px 0' }}>
                   Viewing staff accounts, creating users, changing roles, and deactivating accounts are restricted to Administrator / Owner accounts.
@@ -502,6 +520,7 @@ export const Settings = ({ currentUser, onDatabaseRestored }) => {
                   <button
                     type="button"
                     className="btn btn-secondary btn-sm"
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}
                     onClick={() => {
                       setFormError('')
                       setSelectedUserForPassword(currentUser)
@@ -509,7 +528,8 @@ export const Settings = ({ currentUser, onDatabaseRestored }) => {
                       setIsPasswordModalOpen(true)
                     }}
                   >
-                    🔑 Change My Password
+                    <Key size={13} />
+                    <span>Change My Password</span>
                   </button>
                 )}
               </div>
@@ -547,7 +567,8 @@ export const Settings = ({ currentUser, onDatabaseRestored }) => {
                           <button
                             type="button"
                             className="btn btn-secondary btn-sm"
-                            style={{ padding: '2px 6px', fontSize: '11px' }}
+                            style={{ padding: '2px 6px', fontSize: '11px', display: 'inline-flex', alignItems: 'center', gap: '3px' }}
+                            title="Change User Password"
                             onClick={() => {
                               setFormError('')
                               setSelectedUserForPassword(u)
@@ -555,12 +576,14 @@ export const Settings = ({ currentUser, onDatabaseRestored }) => {
                               setIsPasswordModalOpen(true)
                             }}
                           >
-                            🔑 Key
+                            <Key size={12} />
+                            <span>Password</span>
                           </button>
                           <button
                             type="button"
                             className="btn btn-secondary btn-sm"
-                            style={{ padding: '2px 6px', fontSize: '11px' }}
+                            style={{ padding: '2px 6px', fontSize: '11px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
+                            title="Edit User"
                             onClick={() => {
                               setFormError('')
                               setEditingUser(u)
@@ -571,7 +594,7 @@ export const Settings = ({ currentUser, onDatabaseRestored }) => {
                               })
                             }}
                           >
-                            ✏️
+                            <Pencil size={12} />
                           </button>
                         </div>
                       </td>
@@ -625,6 +648,7 @@ export const Settings = ({ currentUser, onDatabaseRestored }) => {
               )}
             </div>
           </div>
+        </div>
         </div>
       )}
 

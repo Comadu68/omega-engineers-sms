@@ -1,4 +1,5 @@
 import React, { useState } from 'react'
+import { ShieldCheck, ArrowRight } from 'lucide-react'
 
 export const FirstRunSetup = ({ onSetupComplete }) => {
   const [displayName, setDisplayName] = useState('Service Station Manager')
@@ -78,7 +79,7 @@ export const FirstRunSetup = ({ onSetupComplete }) => {
               marginBottom: '12px'
             }}
           >
-            🛡️
+            <ShieldCheck size={28} color="#FFFFFF" />
           </div>
           <h2 style={{ margin: '0 0 6px 0', fontSize: '20px', color: 'var(--text-main)' }}>
             Initial System Setup
@@ -168,7 +169,12 @@ export const FirstRunSetup = ({ onSetupComplete }) => {
             style={{ width: '100%', height: '42px', marginTop: '10px' }}
             disabled={isSubmitting}
           >
-            {isSubmitting ? 'Configuring System...' : 'Initialize & Launch System →'}
+            {isSubmitting ? 'Configuring System...' : (
+              <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                <span>Initialize &amp; Launch System</span>
+                <ArrowRight size={15} />
+              </span>
+            )}
           </button>
         </form>
       </div>

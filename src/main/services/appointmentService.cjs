@@ -86,7 +86,7 @@ const getMonthlyAvailability = (year, month) => {
     `SELECT appointment_date AS date, COUNT(*) AS bookedCount
      FROM appointments
      WHERE appointment_date BETWEEN ? AND ?
-       AND status != 'cancelled'
+       AND status NOT IN ('cancelled', 'no_show')
      GROUP BY appointment_date`,
     [startDate, endDate]
   )
@@ -116,14 +116,14 @@ const getMonthlyAvailability = (year, month) => {
   }
 }
 
-const checkAvailability = ({ appointmentDate, startTime, excludeId = null }) => {
+const checkAvailability = ({ appointmentDate, startTime, vehicleId = null, excludeId = null }) => {
   const capacity = getDailyCapacity()
 
-  // 1. Check daily total capacity (excluding cancelled)
+  // 1. Check daily total capacity (excluding cancelled and no-show)
   let countSql = `
     SELECT COUNT(*) AS bookedCount
     FROM appointments
-    WHERE appointment_date = ? AND status != 'cancelled'
+    WHERE appointment_date = ? AND status NOT IN ('cancelled', 'no_show')
   `
   const countParams = [appointmentDate]
   if (excludeId) {
@@ -142,10 +142,32 @@ const checkAvailability = ({ appointmentDate, startTime, excludeId = null }) => 
     }
   }
 
-  // 2. Check exact slot collision
+  // 2. Check same vehicle collision
+  if (vehicleId) {
+    let vehSql = `
+      SELECT id FROM appointments
+      WHERE vehicle_id = ? AND appointment_date = ? AND start_time = ? AND status NOT IN ('cancelled', 'no_show')
+    `
+    const vehParams = [vehicleId, appointmentDate, startTime]
+    if (excludeId) {
+      vehSql += ' AND id != ?'
+      vehParams.push(excludeId)
+    }
+    const vehConflict = dbHelper.queryOne(vehSql, vehParams)
+    if (vehConflict) {
+      return {
+        available: false,
+        reason: 'This vehicle already has an active appointment scheduled for this date and time slot.',
+        bookedCount,
+        maxCapacity: capacity
+      }
+    }
+  }
+
+  // 3. Check exact slot collision
   let slotSql = `
     SELECT id FROM appointments
-    WHERE appointment_date = ? AND start_time = ? AND status != 'cancelled'
+    WHERE appointment_date = ? AND start_time = ? AND status NOT IN ('cancelled', 'no_show')
   `
   const slotParams = [appointmentDate, startTime]
   if (excludeId) {
@@ -179,13 +201,19 @@ const create = ({
   startTime,
   endTime = null,
   notes = '',
-  userId = null
+  userId = null,
+  allowPastDate = false
 }) => {
   if (!customerId || !vehicleId || !serviceReason || !appointmentDate || !startTime) {
     throw new Error('Customer, Vehicle, Service Reason, Date, and Time Slot are required.')
   }
 
-  const check = checkAvailability({ appointmentDate, startTime })
+  const todayStr = new Date().toISOString().split('T')[0]
+  if (!allowPastDate && appointmentDate < todayStr) {
+    throw new Error('Appointment date cannot be in the past. Please select today or a future date.')
+  }
+
+  const check = checkAvailability({ appointmentDate, startTime, vehicleId })
   if (!check.available) {
     throw new Error(check.reason)
   }

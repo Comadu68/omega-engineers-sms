@@ -1,4 +1,5 @@
 import React from 'react'
+import { Calendar, Plus } from 'lucide-react'
 import { canAccessModule } from '../utils/permissions'
 
 export const Topbar = ({ title, subtitle, onQuickAction, currentUser }) => {
@@ -20,7 +21,10 @@ export const Topbar = ({ title, subtitle, onQuickAction, currentUser }) => {
         </div>
       </div>
       <div className="topbar-right">
-        <div className="topbar-date">📅 {today}</div>
+        <div className="topbar-date" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+          <Calendar size={14} />
+          <span>{today}</span>
+        </div>
         {onQuickAction && (
           <div style={{ display: 'flex', gap: '8px' }}>
             {canAccessModule(userRole, 'jobcards') && (
@@ -28,8 +32,10 @@ export const Topbar = ({ title, subtitle, onQuickAction, currentUser }) => {
                 type="button"
                 className="btn btn-primary btn-sm"
                 onClick={() => onQuickAction('new_job')}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}
               >
-                + New Job Card
+                <Plus size={14} />
+                <span>New Job Card</span>
               </button>
             )}
             {canAccessModule(userRole, 'appointments') && (
@@ -37,8 +43,10 @@ export const Topbar = ({ title, subtitle, onQuickAction, currentUser }) => {
                 type="button"
                 className="btn btn-secondary btn-sm"
                 onClick={() => onQuickAction('new_appointment')}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}
               >
-                + New Appointment
+                <Plus size={14} />
+                <span>New Appointment</span>
               </button>
             )}
           </div>

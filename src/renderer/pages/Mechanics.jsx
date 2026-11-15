@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react'
+import { Plus, Phone, Zap, ArrowRight, Pencil } from 'lucide-react'
 import { Modal } from '../components/Modal'
 import { Badge } from '../components/Badge'
 
@@ -107,13 +108,15 @@ export const Mechanics = ({ onNavigateToJob }) => {
         <button
           type="button"
           className="btn btn-primary"
+          style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
           onClick={() => {
             setFormError('')
             setForm({ name: '', phone: '', specialty: 'Engine & Transmission', availabilityStatus: 'available' })
             setIsAddModalOpen(true)
           }}
         >
-          + Register New Mechanic
+          <Plus size={15} />
+          <span>Register New Mechanic</span>
         </button>
       </div>
 
@@ -163,12 +166,18 @@ export const Mechanics = ({ onNavigateToJob }) => {
                   </div>
 
                   <div style={{ margin: '14px 0', fontSize: '12px', color: 'var(--text-muted)', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                    <div>📞 Phone: <strong>{m.phone || '—'}</strong></div>
-                    <div>
-                      ⚡ Current Workload:{' '}
-                      <strong style={{ color: isBusy ? 'var(--warning)' : 'var(--text-main)' }}>
-                        {m.activeWorkload} {m.activeWorkload === 1 ? 'active job' : 'active jobs'}
-                      </strong>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                      <Phone size={12} />
+                      <span>Phone: <strong>{m.phone || '—'}</strong></span>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                      <Zap size={12} />
+                      <span>
+                        Current Workload:{' '}
+                        <strong style={{ color: isBusy ? 'var(--warning)' : 'var(--text-main)' }}>
+                          {m.activeWorkload} {m.activeWorkload === 1 ? 'active job' : 'active jobs'}
+                        </strong>
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -189,9 +198,9 @@ export const Mechanics = ({ onNavigateToJob }) => {
                       value={m.availabilityStatus}
                       onChange={(e) => handleQuickStatusChange(m.id, e.target.value)}
                     >
-                      <option value="available">🟢 Available</option>
-                      <option value="busy">🟡 Busy</option>
-                      <option value="off_duty">⚪ Off Duty</option>
+                      <option value="available">Available</option>
+                      <option value="busy">Busy</option>
+                      <option value="off_duty">Off Duty</option>
                     </select>
                   </div>
 
@@ -199,13 +208,17 @@ export const Mechanics = ({ onNavigateToJob }) => {
                     <button
                       type="button"
                       className="btn btn-secondary btn-sm"
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}
                       onClick={() => openMechanicDetail(m.id)}
                     >
-                      View Assigned Jobs →
+                      <span>View Assigned Jobs</span>
+                      <ArrowRight size={13} />
                     </button>
                     <button
                       type="button"
                       className="btn btn-secondary btn-sm"
+                      style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '0 8px' }}
+                      title="Edit Mechanic"
                       onClick={() => {
                         setEditingMechanic(m)
                         setForm({
@@ -216,7 +229,7 @@ export const Mechanics = ({ onNavigateToJob }) => {
                         })
                       }}
                     >
-                      ✏️
+                      <Pencil size={13} />
                     </button>
                   </div>
                 </div>

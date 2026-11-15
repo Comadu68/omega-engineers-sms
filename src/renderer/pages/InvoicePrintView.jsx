@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react'
+import { ArrowLeft, CreditCard, Printer, AlertTriangle, Scissors } from 'lucide-react'
 import { Badge } from '../components/Badge'
 import { Modal } from '../components/Modal'
 
@@ -82,8 +83,9 @@ export const InvoicePrintView = ({ invoiceId, onBack, onPaymentRecorded }) => {
       {/* Top action toolbar (hidden on print) */}
       <div className="toolbar no-print" style={{ marginBottom: '24px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <button type="button" className="btn btn-secondary btn-sm" onClick={onBack}>
-            ← Back to Invoices
+          <button type="button" className="btn btn-secondary btn-sm" style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }} onClick={onBack}>
+            <ArrowLeft size={13} />
+            <span>Back to Invoices</span>
           </button>
           <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 800 }}>
             Invoice &amp; Service Sticker Preview
@@ -96,13 +98,16 @@ export const InvoicePrintView = ({ invoiceId, onBack, onPaymentRecorded }) => {
             <button
               type="button"
               className="btn btn-success"
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
               onClick={() => setIsPaymentModalOpen(true)}
             >
-              💳 Record Payment (Balance: Rs. {invoice.balance.toLocaleString()})
+              <CreditCard size={15} />
+              <span>Record Payment (Balance: Rs. {invoice.balance.toLocaleString()})</span>
             </button>
           )}
-          <button type="button" className="btn btn-primary" onClick={handlePrint}>
-            🖶 Print Bill + Sticker
+          <button type="button" className="btn btn-primary" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }} onClick={handlePrint}>
+            <Printer size={15} />
+            <span>Print Bill + Sticker</span>
           </button>
         </div>
       </div>
@@ -209,8 +214,9 @@ export const InvoicePrintView = ({ invoiceId, onBack, onPaymentRecorded }) => {
               Payment Receipts ({invoice.payments?.length || 0})
             </div>
             {invoice.payments?.length === 0 ? (
-              <div style={{ fontSize: '12px', color: '#E35757', fontWeight: 600 }}>
-                ⚠️ Payment Pending (Unpaid)
+              <div style={{ fontSize: '12px', color: '#E35757', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                <AlertTriangle size={13} color="#E35757" />
+                <span>Payment Pending (Unpaid)</span>
               </div>
             ) : (
               <div style={{ fontSize: '11px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
@@ -256,8 +262,9 @@ export const InvoicePrintView = ({ invoiceId, onBack, onPaymentRecorded }) => {
         </div>
 
         {/* Perforated Cut Line */}
-        <div className="perforated-cut-line">
-          ✂ CUT ALONG LINE — DETACH SERVICE STICKER BELOW
+        <div className="perforated-cut-line" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+          <Scissors size={13} />
+          <span>CUT ALONG LINE — DETACH SERVICE STICKER BELOW</span>
         </div>
 
         {/* Attached Windshield Reminder Sticker */}

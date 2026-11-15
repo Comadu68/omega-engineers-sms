@@ -81,7 +81,7 @@ async function runTests() {
 
   // 4. Appointments & Slot Collision Prevention
   console.log('Test 4: Appointments & Capacity Collision Checks')
-  const testDate = '2026-08-30'
+  const testDate = new Date().toISOString().slice(0, 10)
   const testSlot = '09:30 AM'
 
   const appt1 = appointmentService.create({
