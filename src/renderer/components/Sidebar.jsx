@@ -6,6 +6,7 @@ export const NAV_ITEMS = [
   { id: 'jobcards', label: 'Job Cards', icon: '📋' },
   { id: 'appointments', label: 'Appointments', icon: '📅' },
   { id: 'inventory', label: 'Inventory', icon: '📦' },
+  { id: 'suppliers', label: 'Suppliers', icon: '🏢' },
   { id: 'mechanics', label: 'Mechanics', icon: '🔧' },
   { id: 'customers', label: 'Customers', icon: '👥' },
   { id: 'invoices', label: 'Invoices', icon: '💳' },

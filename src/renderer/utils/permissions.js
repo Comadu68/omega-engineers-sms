@@ -4,6 +4,7 @@ export const MODULE_PERMISSIONS = {
   appointments: ['admin_owner', 'receptionist_service_advisor'],
   customers: ['admin_owner', 'receptionist_service_advisor', 'inventory_billing'],
   inventory: ['admin_owner', 'inventory_billing'],
+  suppliers: ['admin_owner', 'inventory_billing'],
   mechanics: ['admin_owner', 'receptionist_service_advisor', 'mechanic'],
   invoices: ['admin_owner', 'inventory_billing'],
   reports: ['admin_owner'],

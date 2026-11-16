@@ -449,9 +449,9 @@ export const Inventory = ({ prefillReceiveItem = null }) => {
         </div>
       </div>
 
-      {/* View Switcher Tabs (SCRUM-24, SCRUM-25, SCRUM-28, SCRUM-29) */}
-      <div className="toolbar" style={{ marginBottom: '14px' }}>
-        <div className="filter-chips">
+      {/* View Switcher Tabs (SCRUM-24, SCRUM-25, SCRUM-28) */}
+      <div className="toolbar" style={{ marginBottom: '14px', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'nowrap', gap: '10px' }}>
+        <div className="filter-chips" style={{ flexWrap: 'nowrap' }}>
           <button
             type="button"
             className={`chip ${activeView === 'catalog' ? 'active' : ''}`}
@@ -461,42 +461,24 @@ export const Inventory = ({ prefillReceiveItem = null }) => {
           </button>
           <button
             type="button"
-            className={`chip ${activeView === 'danger' ? 'active' : ''}`}
+            className={`chip ${summary.lowStockCount > 0 ? 'chip-danger' : ''} ${activeView === 'danger' ? 'active' : ''}`}
             onClick={() => setActiveView('danger')}
-            style={
-              summary.lowStockCount > 0 && activeView !== 'danger'
-                ? { borderColor: 'var(--danger)', color: 'var(--danger-text)', fontWeight: 700 }
-                : undefined
-            }
           >
             🚨 Stock Danger List ({summary.lowStockCount})
           </button>
           <button
             type="button"
-            className={`chip ${activeView === 'suppliers' ? 'active' : ''}`}
-            onClick={() => setActiveView('suppliers')}
+            className={`chip ${activeView === 'purchases' ? 'active' : ''}`}
+            onClick={() => setActiveView('purchases')}
           >
-            🏢 Suppliers &amp; Purchase Invoices ({suppliers.length})
+            🧾 Purchase Invoices / GRN ({purchaseBatches.length})
           </button>
         </div>
 
-        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'nowrap', flexShrink: 0 }}>
           <button
             type="button"
-            className="btn btn-secondary"
-            onClick={() => {
-              setEditingSupplier(null)
-              setSupplierFormError('')
-              setSupplierForm({ name: '', phone: '', address: '', notes: '' })
-              setSupplierTargetContext(null)
-              setIsAddSupplierOpen(true)
-            }}
-          >
-            🏢 + Add Supplier
-          </button>
-          <button
-            type="button"
-            className="btn btn-secondary"
+            className="btn btn-secondary btn-sm"
             onClick={() => {
               if (items.length > 0) {
                 openReceiveBatchFor(items[0])
@@ -505,11 +487,11 @@ export const Inventory = ({ prefillReceiveItem = null }) => {
               }
             }}
           >
-            + Receive Stock Batch (GRN)
+            📥 Receive Stock (GRN)
           </button>
           <button
             type="button"
-            className="btn btn-primary"
+            className="btn btn-primary btn-sm"
             onClick={() => {
               setFormError('')
               setItemForm({
@@ -571,7 +553,7 @@ export const Inventory = ({ prefillReceiveItem = null }) => {
             </div>
           </div>
 
-          <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+          <div className="card" style={{ padding: 0, overflowX: 'auto' }}>
             {loading ? (
               <div style={{ padding: '36px', textAlign: 'center', color: 'var(--text-muted)' }}>
                 Loading inventory stock...
@@ -584,75 +566,122 @@ export const Inventory = ({ prefillReceiveItem = null }) => {
               <table className="data-table">
                 <thead>
                   <tr>
-                    <th>SKU / Code</th>
-                    <th>Item Name</th>
-                    <th>Category</th>
-                    <th>Total In Stock</th>
-                    <th>Reorder Level</th>
-                    <th>FIFO Avg Cost</th>
+                    <th>SKU &amp; Category</th>
+                    <th>Part Name &amp; Supplier</th>
+                    <th>In Stock / Min</th>
+                    <th>FIFO Cost</th>
                     <th>Selling Price</th>
                     <th>Status</th>
-                    <th>Action</th>
+                    <th style={{ textAlign: 'right' }}>Action</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {items.map((item) => (
-                    <tr key={item.id} style={{ background: item.isLowStock ? '#FFFDF8' : 'transparent' }}>
-                      <td style={{ fontWeight: 700, color: 'var(--text-muted)' }}>{item.sku}</td>
-                      <td>
-                        <div style={{ fontWeight: 700, color: 'var(--text-main)' }}>{item.name}</div>
-                        {item.defaultSupplierName && (
-                          <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-                            Supplier: {item.defaultSupplierName}
+                  {items.map((item) => {
+                    const isZeroStock = (item.totalStock || 0) <= 0
+                    const avgCost = Math.round(item.weightedUnitCost || 0)
+                    const sellPrice = Math.round(item.currentSellingPrice || 0)
+                    const isBelowCost = avgCost > 0 && sellPrice < avgCost
+                    const marginPct = avgCost > 0 ? Math.round(((sellPrice - avgCost) / avgCost) * 100) : null
+                    return (
+                      <tr key={item.id} style={{ background: isZeroStock ? '#FFF5F5' : item.isLowStock ? '#FFFDF8' : 'transparent' }}>
+                        <td style={{ whiteSpace: 'nowrap' }}>
+                          <div style={{ fontWeight: 700, color: 'var(--text-main)', fontFamily: 'monospace', fontSize: '12px' }}>
+                            {item.sku}
                           </div>
-                        )}
-                      </td>
-                      <td>
-                        <span style={{ fontSize: '11px', background: 'var(--bg-main)', padding: '3px 8px', borderRadius: '4px', border: '1px solid var(--border-color)' }}>
-                          {item.category}
-                        </span>
-                      </td>
-                      <td>
-                        <span style={{ fontWeight: 800, fontSize: '14px', color: item.isLowStock ? 'var(--danger)' : 'var(--text-main)' }}>
-                          {item.totalStock}
-                        </span>
-                        <span style={{ fontSize: '11px', color: 'var(--text-muted)', marginLeft: '4px' }}>
-                          ({item.activeBatchesCount} {item.activeBatchesCount === 1 ? 'batch' : 'batches'})
-                        </span>
-                      </td>
-                      <td style={{ color: 'var(--text-muted)' }}>{item.minimumStockLevel} units</td>
-                      <td style={{ color: 'var(--text-muted)' }}>
-                        Rs. {Math.round(item.weightedUnitCost).toLocaleString()}
-                      </td>
-                      <td style={{ fontWeight: 700 }}>
-                        Rs. {item.currentSellingPrice ? item.currentSellingPrice.toLocaleString() : '0.00'}
-                      </td>
-                      <td>
-                        <Badge
-                          status={item.isLowStock ? 'low_stock' : 'in_stock'}
-                          text={item.isLowStock ? 'Low Stock' : 'In Stock'}
-                        />
-                      </td>
-                      <td>
-                        <div style={{ display: 'flex', gap: '6px' }}>
-                          <button
-                            type="button"
-                            className="btn btn-secondary btn-sm"
-                            onClick={() => openItemDetail(item.id)}
+                          <span
+                            style={{
+                              display: 'inline-block',
+                              whiteSpace: 'nowrap',
+                              marginTop: '3px',
+                              fontSize: '10px',
+                              fontWeight: 600,
+                              color: 'var(--text-muted)',
+                              background: 'var(--bg-main)',
+                              padding: '2px 7px',
+                              borderRadius: '4px',
+                              border: '1px solid var(--border-color)'
+                            }}
                           >
-                            Batches ({item.activeBatchesCount}) →
-                          </button>
-                          <button
-                            type="button"
-                            className="btn btn-primary btn-sm"
-                            onClick={() => openReceiveBatchFor(item)}
-                          >
-                            + Receive
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
+                            {item.category}
+                          </span>
+                        </td>
+                        <td>
+                          <div style={{ fontWeight: 700, color: 'var(--text-main)', lineHeight: 1.3 }}>{item.name}</div>
+                          {item.defaultSupplierName && (
+                            <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                              Supplier: {item.defaultSupplierName}
+                            </div>
+                          )}
+                        </td>
+                        <td style={{ whiteSpace: 'nowrap' }}>
+                          <div>
+                            <span style={{ fontWeight: 800, fontSize: '14px', color: item.isLowStock ? 'var(--danger)' : 'var(--text-main)' }}>
+                              {item.totalStock}
+                            </span>
+                            <span style={{ fontSize: '11px', color: 'var(--text-muted)', marginLeft: '4px' }}>
+                              ({item.activeBatchesCount} {item.activeBatchesCount === 1 ? 'batch' : 'batches'})
+                            </span>
+                          </div>
+                          <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '1px' }}>
+                            Min level: {item.minimumStockLevel} units
+                          </div>
+                        </td>
+                        <td style={{ color: 'var(--text-muted)', whiteSpace: 'nowrap', fontWeight: 600 }}>
+                          {avgCost > 0 ? `Rs. ${avgCost.toLocaleString()}` : '—'}
+                        </td>
+                        <td style={{ whiteSpace: 'nowrap' }}>
+                          <div style={{ fontWeight: 700, color: isBelowCost ? 'var(--danger-text)' : 'var(--text-main)' }}>
+                            Rs. {sellPrice.toLocaleString()}
+                          </div>
+                          {isBelowCost ? (
+                            <div
+                              style={{
+                                display: 'inline-block',
+                                marginTop: '2px',
+                                fontSize: '10px',
+                                fontWeight: 700,
+                                color: 'var(--danger-text)',
+                                background: 'var(--danger-bg)',
+                                padding: '1px 6px',
+                                borderRadius: '4px',
+                                border: '1px solid rgba(227, 87, 87, 0.35)'
+                              }}
+                            >
+                              ⚠️ Loss: -Rs. {(avgCost - sellPrice).toLocaleString()}
+                            </div>
+                          ) : marginPct !== null ? (
+                            <div style={{ fontSize: '11px', color: 'var(--success-text)', fontWeight: 600 }}>
+                              +{marginPct}% margin
+                            </div>
+                          ) : null}
+                        </td>
+                        <td style={{ whiteSpace: 'nowrap' }}>
+                          <Badge
+                            status={isZeroStock ? 'out_of_stock' : item.isLowStock ? 'low_stock' : 'in_stock'}
+                            text={isZeroStock ? 'Out of Stock' : item.isLowStock ? 'Low Stock' : 'In Stock'}
+                          />
+                        </td>
+                        <td style={{ whiteSpace: 'nowrap', textAlign: 'right' }}>
+                          <div style={{ display: 'inline-flex', gap: '6px', flexWrap: 'nowrap' }}>
+                            <button
+                              type="button"
+                              className="btn btn-secondary btn-sm"
+                              onClick={() => openItemDetail(item.id)}
+                            >
+                              Batches ({item.activeBatchesCount})
+                            </button>
+                            <button
+                              type="button"
+                              className="btn btn-primary btn-sm"
+                              onClick={() => openReceiveBatchFor(item)}
+                            >
+                              + Receive
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    )
+                  })}
                 </tbody>
               </table>
             )}
@@ -682,7 +711,7 @@ export const Inventory = ({ prefillReceiveItem = null }) => {
                 Critical Danger Items (At / Below Reorder Level)
               </div>
               <div style={{ fontSize: '24px', fontWeight: 800, color: 'var(--danger)', marginTop: '4px' }}>
-                {dangerItems.length} Parts
+                {dangerItems.length} {dangerItems.length === 1 ? 'Part' : 'Parts'}
               </div>
             </div>
             <div>
@@ -690,7 +719,7 @@ export const Inventory = ({ prefillReceiveItem = null }) => {
                 Completely Depleted (0 Stock)
               </div>
               <div style={{ fontSize: '24px', fontWeight: 800, color: outOfStockCount > 0 ? 'var(--danger)' : 'var(--text-main)', marginTop: '4px' }}>
-                {outOfStockCount} Parts
+                {outOfStockCount} {outOfStockCount === 1 ? 'Part' : 'Parts'}
               </div>
             </div>
             <div>
@@ -703,7 +732,7 @@ export const Inventory = ({ prefillReceiveItem = null }) => {
             </div>
           </div>
 
-          <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+          <div className="card" style={{ padding: 0, overflowX: 'auto' }}>
             <div className="card-header" style={{ padding: '16px 20px', margin: 0 }}>
               <div>
                 <h3 className="card-title" style={{ color: 'var(--danger-text)' }}>
@@ -723,15 +752,13 @@ export const Inventory = ({ prefillReceiveItem = null }) => {
               <table className="data-table">
                 <thead>
                   <tr>
-                    <th>SKU</th>
-                    <th>Part Name &amp; Category</th>
-                    <th>Current Stock</th>
-                    <th>Min Threshold</th>
+                    <th>Part Name, SKU &amp; Category</th>
+                    <th>Stock vs Min</th>
                     <th>Shortfall</th>
-                    <th>Recommended Reorder</th>
-                    <th>Preferred Supplier &amp; Phone</th>
+                    <th>Suggested Order</th>
+                    <th>Preferred Supplier</th>
                     <th>Urgency</th>
-                    <th>Action</th>
+                    <th style={{ textAlign: 'right' }}>Action</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -739,24 +766,29 @@ export const Inventory = ({ prefillReceiveItem = null }) => {
                     const isZero = (item.totalStock || 0) <= 0
                     return (
                       <tr key={item.id} style={{ background: isZero ? '#FFF0F0' : '#FFFDF8' }}>
-                        <td style={{ fontWeight: 700, color: 'var(--text-muted)' }}>{item.sku}</td>
                         <td>
-                          <div style={{ fontWeight: 700 }}>{item.name}</div>
-                          <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{item.category}</div>
+                          <div style={{ fontWeight: 700, lineHeight: 1.3 }}>{item.name}</div>
+                          <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '3px' }}>
+                            <span style={{ fontFamily: 'monospace', fontWeight: 700, color: 'var(--text-main)' }}>{item.sku}</span>
+                            {' • '}
+                            <span>{item.category}</span>
+                          </div>
                         </td>
-                        <td>
+                        <td style={{ whiteSpace: 'nowrap' }}>
                           <span style={{ fontWeight: 800, fontSize: '15px', color: 'var(--danger)' }}>
                             {item.totalStock}
                           </span>
+                          <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>
+                            {' '}/ {item.minimumStockLevel} min
+                          </span>
                         </td>
-                        <td style={{ fontWeight: 600 }}>{item.minimumStockLevel} units</td>
-                        <td>
+                        <td style={{ whiteSpace: 'nowrap' }}>
                           <span style={{ fontWeight: 700, color: 'var(--danger-text)' }}>
                             {item.shortfallQty > 0 ? `-${item.shortfallQty} units` : 'At limit'}
                           </span>
                         </td>
-                        <td>
-                          <span style={{ fontWeight: 800, color: 'var(--primary)', background: 'var(--primary-light)', padding: '3px 8px', borderRadius: '6px' }}>
+                        <td style={{ whiteSpace: 'nowrap' }}>
+                          <span style={{ display: 'inline-block', whiteSpace: 'nowrap', fontWeight: 800, color: 'var(--primary)', background: 'var(--primary-light)', padding: '3px 8px', borderRadius: '6px' }}>
                             +{item.recommendedReorderQty} units
                           </span>
                         </td>
@@ -772,13 +804,13 @@ export const Inventory = ({ prefillReceiveItem = null }) => {
                             <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Unassigned</span>
                           )}
                         </td>
-                        <td>
+                        <td style={{ whiteSpace: 'nowrap' }}>
                           <Badge
-                            status="low_stock"
-                            text={isZero ? 'OUT OF STOCK' : 'LOW STOCK'}
+                            status={isZero ? 'out_of_stock' : 'low_stock'}
+                            text={isZero ? 'Out of Stock' : 'Low Stock'}
                           />
                         </td>
-                        <td>
+                        <td style={{ whiteSpace: 'nowrap', textAlign: 'right' }}>
                           <button
                             type="button"
                             className="btn btn-primary btn-sm"
@@ -798,193 +830,91 @@ export const Inventory = ({ prefillReceiveItem = null }) => {
       )}
 
       {/* =================================================================== */}
-      {/* VIEW 3: SUPPLIERS CRUD & PURCHASE INVOICE / GRN LOG (SCRUM-25 & 29) */}
+      {/* VIEW 3: SUPPLIER PURCHASE INVOICES / GRN LOG (SCRUM-25)             */}
       {/* =================================================================== */}
-      {activeView === 'suppliers' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-          {/* Supplier Directory Card (SCRUM-29) */}
-          <div className="card" style={{ padding: 0, overflow: 'hidden', margin: 0 }}>
-            <div className="card-header" style={{ padding: '16px 20px', margin: 0 }}>
-              <div>
-                <h3 className="card-title">🏢 Registered Spare Parts Suppliers</h3>
-                <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px' }}>
-                  Maintain supplier contact records and review supplier purchase volume
-                </div>
-              </div>
-              <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                <label style={{ fontSize: '12px', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', color: 'var(--text-muted)' }}>
-                  <input
-                    type="checkbox"
-                    checked={showInactiveSuppliers}
-                    onChange={(e) => setShowInactiveSuppliers(e.target.checked)}
-                  />
-                  Show Inactive Suppliers
-                </label>
-                <button
-                  type="button"
-                  className="btn btn-primary btn-sm"
-                  onClick={() => {
-                    setEditingSupplier(null)
-                    setSupplierFormError('')
-                    setSupplierForm({ name: '', phone: '', address: '', notes: '' })
-                    setSupplierTargetContext(null)
-                    setIsAddSupplierOpen(true)
-                  }}
-                >
-                  + Register Supplier
-                </button>
+      {activeView === 'purchases' && (
+        <div className="card" style={{ padding: 0, overflowX: 'auto', margin: 0 }}>
+          <div className="card-header" style={{ padding: '16px 20px', margin: 0, flexWrap: 'wrap', gap: '12px' }}>
+            <div>
+              <h3 className="card-title">🧾 Supplier Purchase Invoices &amp; GRN Batch Log</h3>
+              <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                History of stock batches received from suppliers with GRN / Supplier Invoice references
               </div>
             </div>
 
-            {allSuppliers.length === 0 ? (
-              <div style={{ padding: '32px', textAlign: 'center', color: 'var(--text-muted)' }}>
-                No suppliers registered yet. Click &quot;+ Register Supplier&quot; to add a vendor.
-              </div>
-            ) : (
-              <table className="data-table">
-                <thead>
-                  <tr>
-                    <th>Supplier Name</th>
-                    <th>Contact Phone</th>
-                    <th>Address</th>
-                    <th>Notes</th>
-                    <th>GRN Batches</th>
-                    <th>Total Purchases</th>
-                    <th>Status</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {allSuppliers.map((s) => (
-                    <tr key={s.id} style={{ opacity: s.is_active ? 1 : 0.6 }}>
-                      <td style={{ fontWeight: 700 }}>{s.name}</td>
-                      <td style={{ fontWeight: 600 }}>{s.phone || '—'}</td>
-                      <td style={{ color: 'var(--text-muted)', fontSize: '12px' }}>{s.address || '—'}</td>
-                      <td style={{ color: 'var(--text-muted)', fontSize: '12px' }}>{s.notes || '—'}</td>
-                      <td style={{ fontWeight: 700 }}>{s.batchesCount || 0}</td>
-                      <td style={{ fontWeight: 700 }}>
-                        Rs. {Math.round(s.totalPurchasesValue || 0).toLocaleString()}
-                      </td>
-                      <td>
-                        <Badge
-                          status={s.is_active ? 'available' : 'off_duty'}
-                          text={s.is_active ? 'Active' : 'Inactive'}
-                        />
-                      </td>
-                      <td>
-                        <div style={{ display: 'flex', gap: '6px' }}>
-                          <button
-                            type="button"
-                            className="btn btn-secondary btn-sm"
-                            onClick={() => {
-                              setEditingSupplier(s)
-                              setSupplierFormError('')
-                              setSupplierForm({
-                                name: s.name || '',
-                                phone: s.phone || '',
-                                address: s.address || '',
-                                notes: s.notes || ''
-                              })
-                              setIsAddSupplierOpen(true)
-                            }}
-                          >
-                            ✏️ Edit
-                          </button>
-                          <button
-                            type="button"
-                            className={`btn btn-sm ${s.is_active ? 'btn-danger' : 'btn-success'}`}
-                            onClick={() => handleToggleSupplierActive(s)}
-                          >
-                            {s.is_active ? 'Deactivate' : 'Reactivate'}
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+              <input
+                type="text"
+                className="form-input"
+                style={{ width: '220px', padding: '6px 10px', fontSize: '12px' }}
+                placeholder="Search GRN #, Batch #, or Part..."
+                value={purchaseSearch}
+                onChange={(e) => setPurchaseSearch(e.target.value)}
+              />
+              <select
+                className="form-select"
+                style={{ width: 'auto', minWidth: '180px', padding: '6px 10px', fontSize: '12px' }}
+                value={purchaseFilterSupplierId}
+                onChange={(e) => setPurchaseFilterSupplierId(e.target.value)}
+              >
+                <option value="">All Suppliers</option>
+                {allSuppliers.map((s) => (
+                  <option key={s.id} value={s.id}>{s.name}</option>
+                ))}
+              </select>
+            </div>
           </div>
 
-          {/* Supplier Purchase Invoices / GRN History Card (SCRUM-25) */}
-          <div className="card" style={{ padding: 0, overflow: 'hidden', margin: 0 }}>
-            <div className="card-header" style={{ padding: '16px 20px', margin: 0, flexWrap: 'wrap', gap: '12px' }}>
-              <div>
-                <h3 className="card-title">🧾 Supplier Purchase Invoices &amp; GRN Batch Log</h3>
-                <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px' }}>
-                  History of stock batches received from suppliers with GRN / Supplier Invoice references
-                </div>
-              </div>
-
-              <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
-                <input
-                  type="text"
-                  className="form-input"
-                  style={{ width: '220px', padding: '6px 10px', fontSize: '12px' }}
-                  placeholder="Search GRN #, Batch #, or Part..."
-                  value={purchaseSearch}
-                  onChange={(e) => setPurchaseSearch(e.target.value)}
-                />
-                <select
-                  className="form-select"
-                  style={{ width: 'auto', minWidth: '180px', padding: '6px 10px', fontSize: '12px' }}
-                  value={purchaseFilterSupplierId}
-                  onChange={(e) => setPurchaseFilterSupplierId(e.target.value)}
-                >
-                  <option value="">All Suppliers</option>
-                  {allSuppliers.map((s) => (
-                    <option key={s.id} value={s.id}>{s.name}</option>
-                  ))}
-                </select>
-              </div>
+          {purchaseBatches.length === 0 ? (
+            <div style={{ padding: '32px', textAlign: 'center', color: 'var(--text-muted)' }}>
+              No supplier purchase batches match the selected filters.
             </div>
-
-            {purchaseBatches.length === 0 ? (
-              <div style={{ padding: '32px', textAlign: 'center', color: 'var(--text-muted)' }}>
-                No supplier purchase batches match the selected filters.
-              </div>
-            ) : (
-              <table className="data-table">
-                <thead>
-                  <tr>
-                    <th>Received Date</th>
-                    <th>Supplier Invoice / GRN No</th>
-                    <th>Batch No</th>
-                    <th>Supplier</th>
-                    <th>Part (SKU)</th>
-                    <th>Qty Received</th>
-                    <th>Remaining</th>
-                    <th>Unit Cost</th>
-                    <th>Total Batch Cost</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {purchaseBatches.map((b) => (
-                    <tr key={b.id}>
-                      <td style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{b.receivedAt}</td>
-                      <td style={{ fontWeight: 700, color: 'var(--primary)' }}>
+          ) : (
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Received Date</th>
+                  <th>GRN / Batch No</th>
+                  <th>Supplier</th>
+                  <th>Part &amp; SKU</th>
+                  <th>Received / Left</th>
+                  <th>Unit Cost</th>
+                  <th style={{ textAlign: 'right' }}>Total Cost</th>
+                </tr>
+              </thead>
+              <tbody>
+                {purchaseBatches.map((b) => (
+                  <tr key={b.id}>
+                    <td style={{ fontSize: '12px', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>{b.receivedAt}</td>
+                    <td style={{ whiteSpace: 'nowrap' }}>
+                      <div style={{ fontWeight: 700, color: 'var(--primary)', fontFamily: 'monospace', fontSize: '12px' }}>
                         {b.supplierDocumentNo || '—'}
-                      </td>
-                      <td style={{ fontWeight: 600 }}>{b.batchNo}</td>
-                      <td style={{ fontWeight: 600 }}>{b.supplierName}</td>
-                      <td>
-                        <div style={{ fontWeight: 600 }}>{b.itemName}</div>
-                        <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{b.itemSku}</div>
-                      </td>
-                      <td style={{ fontWeight: 700 }}>{b.receivedQty}</td>
-                      <td style={{ color: b.remainingQty > 0 ? 'var(--success-text)' : 'var(--text-muted)', fontWeight: 700 }}>
-                        {b.remainingQty}
-                      </td>
-                      <td>Rs. {Number(b.unitCost || 0).toLocaleString()}</td>
-                      <td style={{ fontWeight: 800 }}>
-                        Rs. {Math.round(b.totalCost || 0).toLocaleString()}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </div>
+                      </div>
+                      <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontFamily: 'monospace', marginTop: '1px' }}>
+                        {b.batchNo}
+                      </div>
+                    </td>
+                    <td style={{ fontWeight: 600, whiteSpace: 'nowrap' }}>{b.supplierName}</td>
+                    <td>
+                      <div style={{ fontWeight: 600 }}>{b.itemName}</div>
+                      <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontFamily: 'monospace' }}>{b.itemSku}</div>
+                    </td>
+                    <td style={{ whiteSpace: 'nowrap' }}>
+                      <span style={{ fontWeight: 700 }}>{b.receivedQty}</span>
+                      <span style={{ color: 'var(--text-muted)', fontSize: '11px' }}> rcvd • </span>
+                      <span style={{ color: b.remainingQty > 0 ? 'var(--success-text)' : 'var(--text-muted)', fontWeight: 700 }}>
+                        {b.remainingQty} left
+                      </span>
+                    </td>
+                    <td style={{ whiteSpace: 'nowrap' }}>Rs. {Number(b.unitCost || 0).toLocaleString()}</td>
+                    <td style={{ fontWeight: 800, whiteSpace: 'nowrap', textAlign: 'right' }}>
+                      Rs. {Math.round(b.totalCost || 0).toLocaleString()}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
       )}
 

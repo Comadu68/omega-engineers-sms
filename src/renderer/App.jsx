@@ -8,6 +8,7 @@ import { Dashboard } from './pages/Dashboard'
 import { JobCards } from './pages/JobCards'
 import { Appointments } from './pages/Appointments'
 import { Inventory } from './pages/Inventory'
+import { Suppliers } from './pages/Suppliers'
 import { Mechanics } from './pages/Mechanics'
 import { Customers } from './pages/Customers'
 import { Invoices } from './pages/Invoices'
@@ -145,6 +146,7 @@ export default function App() {
       case 'jobcards': return 'Digital Job Cards & Repair Tasks'
       case 'appointments': return 'Service Appointments & Capacity Calendar'
       case 'inventory': return 'Spare Parts Inventory & Stock Batches'
+      case 'suppliers': return 'Spare Parts Suppliers & Vendor Directory'
       case 'mechanics': return 'Technicians & Workshop Workload Roster'
       case 'customers': return 'Customer & Vehicle Records'
       case 'invoices': return 'Billing, Invoices & Reminder Stickers'
@@ -160,6 +162,7 @@ export default function App() {
       case 'jobcards': return 'Track repair stages, technician allocation, and FIFO parts consumption'
       case 'appointments': return 'Monthly calendar booking view with capacity control and slot conflict prevention'
       case 'inventory': return 'Batch-based stock receiving, low-stock threshold alerts, and valuation'
+      case 'suppliers': return 'Maintain supplier contact records, credit/supply notes, and review purchase volume'
       case 'mechanics': return 'Technician availability, specialties, and active job assignments'
       case 'customers': return 'Owner records, registered vehicles, and service history'
       case 'invoices': return 'Itemized bills, partial/full payments, and printable service windshield stickers'
@@ -235,6 +238,10 @@ export default function App() {
               <Inventory
                 prefillReceiveItem={inventoryPrefillReceive}
               />
+            )}
+
+            {activeTab === 'suppliers' && (
+              <Suppliers />
             )}
 
             {activeTab === 'mechanics' && (

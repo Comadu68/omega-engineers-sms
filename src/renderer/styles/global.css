@@ -527,6 +527,25 @@ input, select, textarea {
   color: #FFFFFF;
 }
 
+.chip-danger {
+  border-color: rgba(227, 87, 87, 0.5);
+  background: #FFF5F5;
+  color: var(--danger-text);
+  font-weight: 700;
+}
+
+.chip-danger:hover {
+  border-color: var(--danger);
+  background: #FDEDED;
+}
+
+.chip-danger.active {
+  background: var(--danger);
+  color: #FFFFFF;
+  border-color: var(--danger);
+  font-weight: 700;
+}
+
 /* Tables */
 .table-container {
   width: 100%;
@@ -549,13 +568,14 @@ table.data-table th {
   font-size: 11px;
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
-  padding: 12px 16px;
+  letter-spacing: 0.4px;
+  padding: 11px 12px;
   border-bottom: 1px solid var(--border-color);
+  white-space: nowrap;
 }
 
 table.data-table td {
-  padding: 13px 16px;
+  padding: 11px 12px;
   border-bottom: 1px solid var(--border-subtle);
   color: var(--text-main);
   vertical-align: middle;
@@ -580,6 +600,7 @@ table.data-table tr:hover td {
   font-weight: 600;
   text-transform: capitalize;
   letter-spacing: 0.2px;
+  white-space: nowrap;
 }
 
 .badge-pending {
@@ -594,7 +615,7 @@ table.data-table tr:hover td {
   border: 1px solid rgba(67, 97, 238, 0.3);
 }
 
-.badge-completed, .badge-paid, .badge-available {
+.badge-completed, .badge-paid, .badge-available, .badge-in_stock {
   background: var(--success-bg);
   color: var(--success-text);
   border: 1px solid rgba(47, 177, 113, 0.3);
@@ -604,6 +625,12 @@ table.data-table tr:hover td {
   background: var(--danger-bg);
   color: var(--danger-text);
   border: 1px solid rgba(227, 87, 87, 0.3);
+}
+
+.badge-out_of_stock {
+  background: #C92A2A;
+  color: #FFFFFF;
+  border: 1px solid #A61E1E;
 }
 
 .badge-partially_paid, .badge-busy, .badge-limited {
@@ -625,8 +652,7 @@ table.data-table tr:hover td {
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 10, 49, 0.55);
-  backdrop-filter: blur(2px);
+  background: rgba(15, 23, 42, 0.62);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -635,16 +661,17 @@ table.data-table tr:hover td {
 }
 
 .modal-dialog {
+  position: relative;
+  z-index: 1001;
   background: #FFFFFF;
   border-radius: var(--radius-xl);
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.18);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.28);
   width: 100%;
   max-width: 620px;
   max-height: 90vh;
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  animation: modalFadeIn 0.18s ease-out;
 }
 
 .modal-dialog-lg {
